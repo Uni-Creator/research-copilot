@@ -114,6 +114,11 @@ def _encode(o: Any) -> Any:
     raise TypeError(f"not serialisable: {type(o)}")
 
 
+def dumps_state(state: CopilotState) -> str:
+    """Full run state (plan, papers, notes, draft, critique, trace) as pretty JSON."""
+    return json.dumps(state, default=_encode, indent=2)
+
+
 def save_run(out_dir: Path, state: CopilotState) -> dict[str, Path]:
     """Write report.md, report.html and run.json (full state: plan, papers, notes, trace)."""
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -125,5 +130,5 @@ def save_run(out_dir: Path, state: CopilotState) -> dict[str, Path]:
     }
     paths["report.md"].write_text(md, encoding="utf-8")
     paths["report.html"].write_text(render_html(md, state["question"]), encoding="utf-8")
-    paths["run.json"].write_text(json.dumps(state, default=_encode, indent=2), encoding="utf-8")
+    paths["run.json"].write_text(dumps_state(state), encoding="utf-8")
     return paths

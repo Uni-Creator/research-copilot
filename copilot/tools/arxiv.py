@@ -41,7 +41,7 @@ def parse_arxiv_feed(xml_text: str, query: str = "") -> list[Paper]:
             continue
         arxiv_id = m.group(1)
         pdf_url = next(
-            (l.get("href") for l in entry.findall("a:link", _NS) if l.get("title") == "pdf"),
+            (ln.get("href") for ln in entry.findall("a:link", _NS) if ln.get("title") == "pdf"),
             f"https://arxiv.org/pdf/{arxiv_id}",
         )
         published = _text(entry.find("a:published", _NS))

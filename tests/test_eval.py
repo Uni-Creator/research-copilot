@@ -1,7 +1,6 @@
 import re
 
 from copilot.agents.critic import VerdictItem, VerifyOutput
-from copilot.agents.planner import PlannedSubQuestion, PlannerOutput
 from copilot.baseline import run_baseline
 from copilot.config import Settings
 from copilot.graph.state import SearchFilters

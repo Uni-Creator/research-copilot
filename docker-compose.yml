@@ -1,0 +1,17 @@
+# docker compose up --build        UI on :7860, API on :8000, shared cache volume
+# Needs a .env with ANTHROPIC_API_KEY (see .env.example).
+services:
+  ui:
+    build: .
+    environment: { APP: ui }
+    env_file: .env
+    ports: ["7860:7860"]
+    volumes: ["data:/data"]
+  api:
+    build: .
+    environment: { APP: api }
+    env_file: .env
+    ports: ["8000:8000"]
+    volumes: ["data:/data"]
+volumes:
+  data:

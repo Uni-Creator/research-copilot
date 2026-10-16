@@ -1,10 +1,16 @@
 from copilot.agents.critic import (
-    CoverageOutput, VerdictItem, VerifyOutput, make_critic_node, split_claims, support_rate, verify_claims,
+    CoverageOutput,
+    VerdictItem,
+    VerifyOutput,
+    make_critic_node,
+    split_claims,
+    support_rate,
+    verify_claims,
 )
 from copilot.agents.reader import NotesOut, make_reader_node
 from copilot.agents.writer import resolve_citations, to_aliases
 from copilot.config import Settings
-from copilot.graph.state import ClaimCheck, Chunk, Draft, make_initial_state
+from copilot.graph.state import Chunk, Draft, make_initial_state
 from copilot.tools.embeddings import HashingEmbedder
 from copilot.tools.vectorstore import VectorStore
 from tests.conftest import ScriptedLLM, mk

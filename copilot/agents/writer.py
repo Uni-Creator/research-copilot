@@ -17,7 +17,11 @@ from typing import Any, Callable
 
 from copilot.config import Settings
 from copilot.graph.state import (
-    ClaimCheck, CopilotState, Draft, Usage, make_event,
+    ClaimCheck,
+    CopilotState,
+    Draft,
+    Usage,
+    make_event,
 )
 from copilot.llm import text_call
 from copilot.tools.chunking import abstract_chunk_id

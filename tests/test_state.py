@@ -1,5 +1,10 @@
 from copilot.graph.state import (
-    Paper, Usage, ResearchPlan, SubQuestion, make_initial_state, merge_papers, merge_usage,
+    ResearchPlan,
+    SubQuestion,
+    Usage,
+    make_initial_state,
+    merge_papers,
+    merge_usage,
 )
 from copilot.tools.papers import PaperIndex
 from tests.conftest import mk

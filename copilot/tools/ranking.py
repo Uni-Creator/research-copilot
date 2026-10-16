@@ -37,7 +37,7 @@ def rank_papers(
     q_tokens = set(tokenize(question))
 
     scored: list[Paper] = []
-    for p, r in zip(papers, rrf_scores):
+    for p, r in zip(papers, rrf_scores, strict=True):
         cite = math.log1p(p.citation_count) / math.log1p(max_cites) if max_cites > 0 else 0.0
         recency = 0.3 if p.year is None else max(0.0, 1 - max(0, now_year - p.year) / 10)
         text = set(tokenize(f"{p.title} {p.abstract}"))

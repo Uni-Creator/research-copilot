@@ -17,7 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
-from typing import Any, Callable, Literal
+from typing import Any, Literal
 
 import httpx
 from langgraph.graph import END, START, StateGraph
@@ -98,7 +98,8 @@ def build_copilot(
         g.add_edge("retriever", END)
         return Copilot(g.compile(), None, settings, until)
 
-    store = store or VectorStore(embedder or get_embedder(settings))
+    if store is None:  # NB: not `store or ...`: an empty VectorStore is falsy (it defines __len__)
+        store = VectorStore(embedder if embedder is not None else get_embedder(settings))
     fetch = default_fetcher(settings) if fetch_pages is _UNSET else fetch_pages
     after_read = "writer" if stage >= 2 else END
     g.add_node("reader", make_reader_node(llm(reader_llm, settings.reader_model, 1500), store, fetch, settings))

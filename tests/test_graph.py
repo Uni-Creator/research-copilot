@@ -14,7 +14,9 @@ def _plan(*pairs):
 
 
 def test_end_to_end_plan_retrieve_dedupe_rank():
-    top = lambda s: mk("Gloss-free Sign Language Production", year=2024, cites=80, arxiv="2401.1", abstract="gloss-free sign language production", source=s)
+    def top(s):
+        return mk("Gloss-free Sign Language Production", year=2024, cites=80, arxiv="2401.1", abstract="gloss-free sign language production", source=s)
+
     arxiv = fake_source({
         "sign language production": [top("arxiv"), mk("Other SLP paper", arxiv="2301.2"), mk("Old", year=2010, arxiv="1001.1")],
         "sign pose synthesis": [mk("Pose paper", arxiv="2302.3")],

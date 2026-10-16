@@ -37,7 +37,8 @@ def _verify_all_supported(messages):
     return VerifyOutput(verdicts=[VerdictItem(index=i, verdict="supported") for i in range(n)])
 
 
-def _build():
+def overrides():
+    """Fresh fakes for one full run (the scripted LLM lists are consumed as they are used)."""
     src = fake_source({
         "q1": [_paper("Alpha pose model", "1", 90), _paper("Beta gloss model", "2", 50), _paper("Gamma sign model", "3", 5)],
         "q2 metrics": [_paper("Delta evaluation metrics", "4", 70), _paper("Epsilon BLEU study", "5", 10)],
@@ -57,9 +58,13 @@ def _build():
         fetched.append(paper.paper_id)
         return [(1, f"{paper.title} describes a transformer that maps gloss to pose sequences. " * 4)]
 
-    cp = build_copilot(SETTINGS, until="critic", sources={"arxiv": src}, embedder=HashingEmbedder(),
-                       fetch_pages=fetch, **llms)
-    return cp, src, llms, fetched
+    kw = dict(sources={"arxiv": src}, embedder=HashingEmbedder(), fetch_pages=fetch, **llms)
+    return kw, src, llms, fetched
+
+
+def _build():
+    kw, src, llms, fetched = overrides()
+    return build_copilot(SETTINGS, until="critic", **kw), src, llms, fetched
 
 
 def test_full_pipeline_with_critic_retrieve_more_loop():

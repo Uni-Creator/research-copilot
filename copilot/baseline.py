@@ -10,7 +10,13 @@ from copilot.agents.retriever import make_retriever_node
 from copilot.agents.writer import EvidenceItem, generate_draft
 from copilot.config import Settings
 from copilot.graph.state import (
-    CopilotState, ResearchPlan, SearchFilters, SubQuestion, Usage, make_event, make_initial_state,
+    CopilotState,
+    ResearchPlan,
+    SearchFilters,
+    SubQuestion,
+    Usage,
+    make_event,
+    make_initial_state,
 )
 from copilot.tools.chunking import abstract_chunk_id
 from copilot.tools.sources import SearchFn

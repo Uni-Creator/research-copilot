@@ -30,7 +30,7 @@ class HashingEmbedder:
     def _vec(self, text: str) -> np.ndarray:
         v = np.zeros(self.dim, dtype=np.float32)
         toks = tokenize(text)
-        for t in toks + [f"{a}_{b}" for a, b in zip(toks, toks[1:])]:
+        for t in toks + [f"{a}_{b}" for a, b in zip(toks, toks[1:], strict=False)]:
             h = zlib.crc32(t.encode())
             v[h % self.dim] += 1.0 if (zlib.crc32(t.encode() + b"#") & 1) else -1.0
         return v

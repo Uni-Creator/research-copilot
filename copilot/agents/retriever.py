@@ -67,7 +67,7 @@ def make_retriever_node(
                 for name, q in jobs
             ]
             outcomes = []
-            for (name, q), fut in zip(jobs, futures):
+            for (name, q), fut in zip(jobs, futures, strict=True):
                 try:
                     outcomes.append((name, q, fut.result(), None))
                 except Exception as exc:
