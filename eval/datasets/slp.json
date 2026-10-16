@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "notes": "SEED SET - 1 topic. must_cite lists are titles I believe are core sign language production papers; VERIFY each, then add 5-8 more topics (including ISL-specific ones) with must-cite lists you curate yourself. Matching is by arxiv_id/doi if given, else by title similarity (Jaccard >= 0.8), so exact titles work best.",
+  "topics": [
+    {
+      "id": "slp-overview",
+      "question": "What are the main approaches to sign language production, from gloss-based pose generation to generative and gloss-free methods?",
+      "filters": {"year_from": 2018},
+      "must_cite": [
+        {"title": "Progressive Transformers for End-to-End Sign Language Production"},
+        {"title": "Adversarial Training for Multi-Channel Sign Language Production"},
+        {"title": "Skeletal Graph Self-Attention: Embedding a Skeleton Inductive Bias into Sign Language Production"},
+        {"title": "Everybody Sign Now: Translating Spoken Language to Photo Realistic Sign Language Video"},
+        {"title": "Signing at Scale: Learning to Co-Articulate Signs for Large-Scale Photo-Realistic Sign Language Production"},
+        {"title": "G2P-DDM: Generating Sign Pose Sequence from Gloss Sequence with Discrete Diffusion Model"},
+        {"title": "Sign Language Production: A Review"}
+      ]
+    }
+  ]
+}

@@ -43,3 +43,12 @@ def structured_call(llm: Any, schema: type[T], messages: list) -> tuple[T, Usage
     if parsed is None:
         raise StructuredOutputError(f"could not parse {schema.__name__}: {out.get('parsing_error')!r}")
     return parsed, usage
+
+
+def text_call(llm: Any, messages: list) -> tuple[str, Usage]:
+    """Plain (free-text) completion; returns (text, usage)."""
+    msg = llm.invoke(messages)
+    content = msg.content
+    if isinstance(content, list):  # content blocks
+        content = "".join(b.get("text", "") if isinstance(b, dict) else str(b) for b in content)
+    return str(content), usage_from_message(msg)

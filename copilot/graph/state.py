@@ -140,10 +140,21 @@ class PaperNotes(BaseModel):
     chunk_ids: list[str] = []    # evidence chunks stored in the vector DB
 
 
+class Chunk(BaseModel):
+    """A passage of a paper stored in the vector DB. ``chunk_id`` = ``<paper_id>#<n>`` or ``<paper_id>#abs``."""
+
+    chunk_id: str
+    paper_id: str
+    text: str
+    page: int | None = None
+    kind: Literal["abstract", "body"] = "body"
+
+
 class Draft(BaseModel):
-    markdown: str
+    markdown: str                       # citations appear as [cite:<chunk_id>]
     cited_chunk_ids: list[str] = []
     version: int = 1
+    stripped_citations: int = 0         # citations the Writer invented and we removed
 
 
 class ClaimCheck(BaseModel):
