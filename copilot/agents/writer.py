@@ -21,9 +21,9 @@ from copilot.graph.state import (
     CopilotState,
     Draft,
     Usage,
-    make_event,
 )
 from copilot.llm import text_call
+from copilot.progress import Tracer
 from copilot.tools.chunking import abstract_chunk_id
 from copilot.tools.vectorstore import VectorStore
 
@@ -40,6 +40,7 @@ class EvidenceItem:
     title: str
     year: int | None
     text: str
+    page: int | None = None        # None for abstract chunks
 
 
 @lru_cache(maxsize=1)
@@ -78,7 +79,7 @@ def gather_evidence(
     for c in list(picked.values())[: settings.max_evidence_chunks]:
         p = papers.get(c.paper_id)
         items.append(EvidenceItem(c.chunk_id, c.paper_id, p.title if p else c.paper_id,
-                                  p.year if p else None, c.text))
+                                  p.year if p else None, c.text, c.page))
     return items
 
 
@@ -172,8 +173,18 @@ def generate_draft(
     return draft, usage
 
 
+def group_evidence(evidence: list[EvidenceItem]) -> list[dict]:
+    """[{title, passages: ['p3', 'abstract', ...]}] per paper, for display."""
+    groups: dict[str, dict] = {}
+    for e in evidence:
+        g = groups.setdefault(e.paper_id, {"title": e.title, "passages": []})
+        g["passages"].append(f"p{e.page}" if e.page else "abstract")
+    return list(groups.values())
+
+
 def make_writer_node(llm: Any, store: VectorStore, settings: Settings) -> Callable[[CopilotState], dict]:
     def writer_node(state: CopilotState) -> dict:
+        trace = Tracer("writer")
         previous = state.get("draft")
         critique = state.get("critique")
         flagged = (
@@ -181,29 +192,37 @@ def make_writer_node(llm: Any, store: VectorStore, settings: Settings) -> Callab
             if critique and critique.action == "revise_draft" else []
         )
         missing = critique.missing_topics if critique and critique.action == "retrieve_more" else []
+        version = (previous.version + 1) if previous else 1
 
         evidence = gather_evidence(state, store, settings, previous.cited_chunk_ids if previous else None)
         if not evidence:
+            trace("no evidence available; cannot write", "warn")
             return {
-                "draft": Draft(markdown="_No evidence could be retrieved for this question._",
-                               version=(previous.version + 1) if previous else 1),
+                "draft": Draft(markdown="_No evidence could be retrieved for this question._", version=version),
                 "errors": ["writer: no evidence available"],
-                "trace": [make_event("writer", "no evidence; empty draft")],
+                "trace": trace.events,
             }
+        groups = group_evidence(evidence)
         plan = state.get("plan")
+        trace(f"selected {len(evidence)} evidence passages from {len(groups)} papers "
+              f"(best matches per sub-question)", "evidence", papers=groups)
+
+        if flagged:
+            trace(f"revising draft v{version}: fixing {len(flagged)} flagged claim(s)", "draft")
+        elif missing:
+            trace(f"rewriting as draft v{version} with new evidence on: {'; '.join(missing)}", "draft")
+        else:
+            trace(f"writing draft v{version} (every factual sentence must cite a passage)", "draft")
+
         draft, usage = generate_draft(
             llm, state["question"], [sq.question for sq in plan.sub_questions] if plan else [],
             evidence, previous=previous, flagged=flagged, missing_topics=missing,
         )
-        return {
-            "draft": draft,
-            "usage": usage,
-            "trace": [make_event(
-                "writer",
-                f"draft v{draft.version}: {len(draft.markdown.split())} words, "
-                f"{len(draft.cited_chunk_ids)} chunks cited, {draft.stripped_citations} invalid citations stripped",
-                evidence=len(evidence), flagged=len(flagged),
-            )],
-        }
+        extra = f"; {draft.stripped_citations} invented citation(s) removed" if draft.stripped_citations else ""
+        trace(f"draft v{draft.version} ready: {len(draft.markdown.split())} words, "
+              f"{len(draft.cited_chunk_ids)} passages cited{extra}", "draft",
+              words=len(draft.markdown.split()), cited=len(draft.cited_chunk_ids),
+              stripped=draft.stripped_citations, flagged=len(flagged))
+        return {"draft": draft, "usage": usage, "trace": trace.events}
 
     return writer_node

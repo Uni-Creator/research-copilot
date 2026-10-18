@@ -17,8 +17,9 @@ from pydantic import BaseModel
 
 from copilot.config import Settings
 from copilot.graph.routing import budget_exceeded, iterations_left
-from copilot.graph.state import ClaimCheck, CopilotState, CriticReport, Usage, make_event
+from copilot.graph.state import ClaimCheck, CopilotState, CriticReport, Usage
 from copilot.llm import structured_call
+from copilot.progress import Tracer
 
 _CITE = re.compile(r"\[cite:([^\]]+)\]")
 _SENT = re.compile(r"(?<=[.!?])\s+(?=[A-Z\[\"'(])")
@@ -114,19 +115,31 @@ def verify_claims(
 
 def make_critic_node(llm: Any, store, settings: Settings) -> Callable[[CopilotState], dict]:
     def critic_node(state: CopilotState) -> dict:
+        trace = Tracer("critic")
         draft = state["draft"]
         iteration = state.get("iteration", 0)
-        can_loop = iterations_left(state, settings) and not budget_exceeded(state, settings)
+        within_iterations = iterations_left(state, settings)
+        over_budget = budget_exceeded(state, settings)
+        can_loop = within_iterations and not over_budget
 
         claims = split_claims(draft.markdown)
+        n_calls = -(-len(claims) // settings.verify_batch_size) if claims else 0
+        trace(f"fact-checking {len(claims)} cited claims against the passages they cite "
+              f"({n_calls} judge call{'s' if n_calls != 1 else ''})", "check")
         checks, usage = verify_claims(
             llm, claims, lambda cid: (c.text if (c := store.get(cid)) else None), settings.verify_batch_size
         )
+        for c in checks:
+            trace(c.claim, "check", verdict=c.verdict, claim=c.claim, reason=c.reason, chunks=c.chunk_ids)
         rate = support_rate(checks)
+        if rate is not None:
+            trace(f"support rate {rate:.0%} (threshold {settings.support_threshold:.0%}); "
+                  f"{sum(c.verdict != 'supported' for c in checks)} of {len(checks)} claims flagged", "check")
 
         missing: list[str] = []
         if can_loop and claims:
             plan = state.get("plan")
+            trace("reviewing coverage: does the draft answer every part of the question?", "check")
             try:
                 cov, u = structured_call(llm, CoverageOutput, [
                     ("system", _prompt("critic_coverage.md")),
@@ -136,32 +149,38 @@ def make_critic_node(llm: Any, store, settings: Settings) -> Callable[[CopilotSt
                 ])
                 usage = usage + u
                 missing = [t.strip() for t in cov.missing_topics if t.strip()][:4]
-            except Exception:
-                missing = []
+            except Exception as exc:
+                trace(f"coverage review failed ({exc!r}); skipping it", "warn")
+            trace("coverage gaps: " + "; ".join(missing) if missing else "no coverage gaps found", "check",
+                  missing=missing)
 
         low_support = rate is not None and rate < settings.support_threshold
         action: Literal["pass", "revise_draft", "retrieve_more"]
         if can_loop and missing:
-            action = "retrieve_more"
+            action, why = "retrieve_more", "gaps found; searching for papers that cover them"
         elif can_loop and low_support:
-            action = "revise_draft"
+            action, why = "revise_draft", "too many unsupported claims; sending the flagged ones back to the writer"
         else:
             action = "pass"
+            limit = "token budget" if over_budget else "iteration limit"
+            if not claims:
+                why = "no cited claims to verify"
+            elif low_support:                      # can only happen when looping is no longer allowed
+                why = f"{limit} reached; finishing with the quality bar NOT met"
+            elif not can_loop:
+                why = f"claims check out; {limit} reached, so coverage was not re-checked"
+            else:
+                why = "quality bar met"
         report = CriticReport(
             passed=(rate is not None and not low_support and not missing),
             action=action, checks=checks, missing_topics=missing, support_rate=rate,
         )
-        flagged = sum(c.verdict != "supported" for c in checks)
+        trace(f"decision: {action} \u2014 {why}", "decision", action=action, reason=why, support_rate=rate)
         return {
             "critique": report,
             "iteration": iteration + 1,
             "usage": usage,
-            "trace": [make_event(
-                "critic",
-                f"{len(claims)} claims checked, support={rate}, flagged={flagged}, "
-                f"missing={missing or 'none'} -> {action}",
-                support_rate=rate, action=action,
-            )],
+            "trace": trace.events,
         }
 
     return critic_node

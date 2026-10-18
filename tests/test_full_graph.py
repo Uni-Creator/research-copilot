@@ -72,9 +72,11 @@ def test_full_pipeline_with_critic_retrieve_more_loop():
     final = cp.run("How is sign language produced?", SearchFilters())
 
     # loop ran exactly once: plan -> read -> write -> critic(retrieve_more) -> plan -> ... -> pass
-    agents = [e.agent for e in final["trace"]]
-    assert agents.count("planner") == 2 and agents.count("writer") == 2 and agents.count("critic") == 2
-    assert agents.count("reader") == 5                                  # 3 + 2 new; never re-read
+    kinds = [e.kind for e in final["trace"]]
+    assert kinds.count("papers") == 2 and kinds.count("decision") == 2          # two retrieval passes, two critic runs
+    assert kinds.count("notes") == 5                                            # 3 + 2 new; never re-read
+    assert [e.data["action"] for e in final["trace"] if e.kind == "decision"] == ["retrieve_more", "pass"]
+    assert sum(e.message.startswith("draft v") and "ready" in e.message for e in final["trace"]) == 2
     assert sorted(fetched) == sorted(set(fetched)) and len(fetched) == 5
     assert src.calls == ["q1", "q2 metrics"]                           # q1 not searched twice
     assert len(final["shortlist"]) == 5 and set(final["notes"]) == set(final["shortlist"])

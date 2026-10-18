@@ -36,10 +36,10 @@ Cheap modes while developing: `--until retrieve` (plan + search, one LLM call), 
 only), `COPILOT_EMBEDDER=hash` (no model download; not semantic).
 
 ## Interfaces
-- **UI** (`ui/app.py`): live agent trace; tabs for Report, Papers, per-claim Verification, Trace, Downloads.
+- **UI** (`ui/app.py`): live, detailed agent trace (reasoning, plan, searches, papers chosen and why, per-paper reading, every fact-check verdict); tabs for Report, Papers, per-claim Verification, Trace, Downloads.
 - **API** (`copilot/service.py`): `POST /runs`, `GET /runs/{id}/events` (SSE, resumable), reports as md/html/json.
   Optional `COPILOT_API_KEY`. See [deploy/API.md](deploy/API.md).
-- **CLI** (`copilot/cli.py`): writes `report.md`, `report.html`, `run.json`.
+- **CLI** (`copilot/cli.py`): prints every step live (`--brief` for one line each); writes `report.md`, `report.html`, `run.json`.
 
 ## Deploy
 `docker compose up --build` (UI :7860, API :8000) or follow [deploy/HUGGINGFACE.md](deploy/HUGGINGFACE.md).

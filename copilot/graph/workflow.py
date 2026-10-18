@@ -14,10 +14,11 @@ Node names must differ from state keys (``critique`` is the key, ``critic_agent`
 """
 from __future__ import annotations
 
+from collections import deque
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Callable, Literal
 
 import httpx
 from langgraph.graph import END, START, StateGraph
@@ -29,7 +30,7 @@ from copilot.agents.retriever import make_retriever_node
 from copilot.agents.writer import make_writer_node
 from copilot.config import Settings
 from copilot.graph.routing import route_after_critic, route_after_retriever
-from copilot.graph.state import CopilotState, SearchFilters, make_initial_state
+from copilot.graph.state import CopilotState, SearchFilters, TraceEvent, make_initial_state
 from copilot.llm import get_llm
 from copilot.tools.embeddings import Embedder, get_embedder
 from copilot.tools.http import DiskCache, RateLimiter
@@ -52,10 +53,34 @@ class Copilot:
     def run(self, question: str, filters: SearchFilters | None = None) -> CopilotState:
         return self.graph.invoke(make_initial_state(question, filters), config={"recursion_limit": 60})
 
-    def stream(self, question: str, filters: SearchFilters | None = None):
-        yield from self.graph.stream(
-            make_initial_state(question, filters), stream_mode="values", config={"recursion_limit": 60}
-        )
+    def stream(
+        self,
+        question: str,
+        filters: SearchFilters | None = None,
+        on_event: Callable[[TraceEvent], None] | None = None,
+    ):
+        """Yield the full state after each graph step (as before) and, *as they happen*, call
+        ``on_event`` for every progress event the agents emit (including from parallel Readers)."""
+        for mode, chunk in self.graph.stream(
+            make_initial_state(question, filters),
+            stream_mode=["custom", "values"],
+            config={"recursion_limit": 60},
+        ):
+            if mode == "custom":
+                if on_event is not None and isinstance(chunk, dict) and "event" in chunk:
+                    on_event(TraceEvent(**chunk["event"]))
+            else:
+                yield chunk
+
+    def run_live(
+        self,
+        question: str,
+        filters: SearchFilters | None = None,
+        on_event: Callable[[TraceEvent], None] | None = None,
+    ) -> CopilotState:
+        """Run to completion, reporting progress through ``on_event``; returns the final state."""
+        last = deque(self.stream(question, filters, on_event), maxlen=1)
+        return last[0] if last else make_initial_state(question, filters)
 
     def chunk_text(self, chunk_id: str) -> str | None:
         c = self.store.get(chunk_id) if self.store else None

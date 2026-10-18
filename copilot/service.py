@@ -22,6 +22,7 @@ import os
 import threading
 import time
 import uuid
+from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
@@ -111,16 +112,20 @@ class RunManager:
         self._pool.shutdown(wait=False, cancel_futures=True)
 
     def _work(self, run: Run) -> None:
-        req, final, seen = run.request, None, 0
+        req, final = run.request, None
         run.set_status("running")
         try:
             copilot = self.factory(req.until, req.fulltext)
             filters = SearchFilters(year_from=req.year_from, year_to=req.year_to, max_papers=req.max_papers)
-            for final in copilot.stream(req.question, filters):
-                trace = final.get("trace", [])
-                for ev in trace[seen:]:
-                    run.emit({"type": "trace", **ev.model_dump(mode="json")})
-                seen = len(trace)
+            # progress events are pushed live (also from parallel Readers), not batched per graph step
+            states = deque(
+                copilot.stream(
+                    req.question, filters,
+                    on_event=lambda ev: run.emit({"type": "trace", **ev.model_dump(mode="json")}),
+                ),
+                maxlen=1,
+            )
+            final = states[0] if states else None
             if self.out_dir and final:
                 try:
                     save_run(self.out_dir / run.id, final)

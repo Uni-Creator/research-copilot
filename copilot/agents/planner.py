@@ -13,9 +13,9 @@ from copilot.graph.state import (
     SearchFilters,
     SubQuestion,
     Usage,
-    make_event,
 )
 from copilot.llm import structured_call
+from copilot.progress import Tracer, short
 
 MAX_SUBQUESTIONS = 6
 MAX_QUERIES_PER_SUBQUESTION = 3
@@ -28,6 +28,7 @@ class PlannedSubQuestion(BaseModel):
 
 
 class PlannerOutput(BaseModel):
+    reasoning: str = ""          # listed first so the model "thinks" before it plans; shown to the user
     sub_questions: list[PlannedSubQuestion] = []
     scope_notes: str = ""
     year_from: int | None = None
@@ -96,41 +97,49 @@ def to_plan(out: PlannerOutput, question: str, prior: ResearchPlan | None = None
 # ---- node ------------------------------------------------------------------ #
 def make_planner_node(llm: Any) -> Callable[[CopilotState], dict]:
     def planner_node(state: CopilotState) -> dict:
+        trace = Tracer("planner")
         question = state["question"]
         filters = state.get("filters") or SearchFilters()
         prior = state.get("plan")
         critique = state.get("critique")
         missing = critique.missing_topics if critique and critique.action == "retrieve_more" else []
 
+        if missing:
+            trace("follow-up: the reviewer found gaps; planning searches for: " + "; ".join(missing), "thinking")
+        else:
+            trace(f"breaking the question into sub-questions: \u201c{short(question, 120)}\u201d", "info")
+
         messages = [
             ("system", _system_prompt()),
             ("human", build_user_prompt(question, filters, prior, missing)),
         ]
         update: dict = {}
+        n_before = len(prior.sub_questions) if prior else 0
         try:
             out, usage = structured_call(llm, PlannerOutput, messages)
             plan = to_plan(out, question, prior)
             if out.year_from and filters.year_from is None:
                 update["filters"] = filters.model_copy(update={"year_from": out.year_from})
+                trace(f"applying year filter from {out.year_from} (the question asks for recent work)", "info")
             errors: list[str] = []
+            if out.reasoning.strip():
+                trace(out.reasoning.strip(), "thinking")
+            if plan.scope_notes and not missing:
+                trace("scope: " + plan.scope_notes, "thinking")
         except Exception as exc:  # network / parsing / provider errors: degrade, don't crash
-            out, usage = None, Usage()
+            usage = Usage()
             plan = prior or fallback_plan(question)
-            errors = [f"planner: LLM call failed ({exc!r}); using {'previous' if prior else 'fallback'} plan"]
+            msg = f"planner: LLM call failed ({exc!r}); using {'previous' if prior else 'fallback'} plan"
+            errors = [msg]
+            trace(msg, "warn")
 
-        update.update(
-            plan=plan,
-            usage=usage,
-            errors=errors,
-            trace=[
-                make_event(
-                    "planner",
-                    f"plan has {len(plan.sub_questions)} sub-questions, {len(plan.all_queries())} queries",
-                    sub_questions=[sq.question for sq in plan.sub_questions],
-                    queries=plan.all_queries(),
-                )
-            ],
-        )
+        for sq in plan.sub_questions[n_before:]:
+            trace(f"{sq.id} \u00b7 {sq.question}", "plan", queries=sq.queries)
+        n_sq, n_q = len(plan.sub_questions), len(plan.all_queries())
+        trace(f"plan ready: {n_sq} sub-question{'s' * (n_sq != 1)}, {n_q} search quer{'ies' if n_q != 1 else 'y'}", "info",
+              sub_questions=[sq.question for sq in plan.sub_questions], queries=plan.all_queries())
+
+        update.update(plan=plan, usage=usage, errors=errors, trace=trace.events)
         return update
 
     return planner_node

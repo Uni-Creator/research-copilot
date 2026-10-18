@@ -37,7 +37,7 @@ def test_end_to_end_plan_retrieve_dedupe_rank():
     assert sum(1 for p in final["papers"].values() if "Gloss-free" in p.title) == 1   # deduped
     assert final["searched_queries"] == ["sign language production", "sign pose synthesis"]
     assert final["usage"].total_tokens == 150 and final["errors"] == []
-    assert [e.agent for e in final["trace"]] == ["planner", "retriever"]
+    assert list(dict.fromkeys(e.agent for e in final["trace"])) == ["planner", "retriever"]
 
 
 def test_followup_pass_only_searches_new_queries_and_grows_shortlist():

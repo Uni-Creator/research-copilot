@@ -10,17 +10,33 @@ from copilot.graph.state import Usage
 T = TypeVar("T", bound=BaseModel)
 
 
-class StructuredOutputError(RuntimeError):
-    pass
+import os
+
+_LIMITER = None
+
+
+def _rate_limiter():
+    """One limiter shared by every model, so TOTAL requests/minute stay under the free-tier cap."""
+    global _LIMITER
+    rpm = float(os.environ.get("COPILOT_LLM_RPM", "0"))
+    if rpm > 0 and _LIMITER is None:
+        from langchain_core.rate_limiters import InMemoryRateLimiter
+
+        _LIMITER = InMemoryRateLimiter(requests_per_second=rpm / 60, check_every_n_seconds=0.1, max_bucket_size=1)
+    return _LIMITER
 
 
 def get_llm(model: str, provider: str = "anthropic", *, temperature: float = 0.0, max_tokens: int = 2048) -> Any:
-    """Build a LangChain chat model. Imported lazily so tests don't need provider packages."""
     from langchain.chat_models import init_chat_model
 
-    return init_chat_model(
-        model, model_provider=provider, temperature=temperature, max_tokens=max_tokens
-    )
+    kwargs: dict[str, Any] = {"temperature": temperature}
+    if provider == "ollama":
+        kwargs.update(num_predict=max_tokens, num_ctx=8192)   # Ollama's default context would truncate prompts
+    else:
+        kwargs["max_tokens"] = max_tokens
+    if (limiter := _rate_limiter()) is not None:
+        kwargs["rate_limiter"] = limiter
+    return init_chat_model(model, model_provider=provider, **kwargs)
 
 
 def usage_from_message(raw: Any) -> Usage:

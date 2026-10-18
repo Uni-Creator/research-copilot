@@ -21,3 +21,10 @@ Body fields: `question` (10-500 chars), `year_from`, `year_to`, `max_papers` (1-
 Operational behaviour: at most 2 runs execute concurrently (others queue; 429 when 10 are pending),
 the 50 most recent runs are kept in memory (all are also saved under `$COPILOT_TRACES_DIR/runs/<id>/`),
 and a dropped SSE connection can resume with the `Last-Event-ID` header.
+
+## Event format
+Each SSE `trace` event is JSON: `{"type":"trace","agent","kind","message","ts","data"}`. `kind` is one of
+`thinking | plan | search | papers | read | notes | evidence | draft | check | decision | warn | info`;
+`data` holds the details (e.g. `plan` -> `queries`; `papers` -> the ranked shortlist with scores and sources;
+`check` -> `verdict`, `claim`, `reason`; `decision` -> `action`, `reason`). Events are pushed as they happen,
+including from parallel Readers.

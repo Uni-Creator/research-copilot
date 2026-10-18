@@ -1,0 +1,986 @@
+diff --git a/.env.example b/.env.example
+index a7d6896..c6d2c0d 100644
+--- a/.env.example
++++ b/.env.example
+@@ -1,7 +1,19 @@
+-# LLM provider (Planner + later agents)
+-ANTHROPIC_API_KEY=your-key-here
+-COPILOT_MODEL_PROVIDER=anthropic
+-COPILOT_PLANNER_MODEL=claude-haiku-5-5
++# LLM provider (Planner + other agents)
++GOOGLE_API_KEY=your-key
++COPILOT_MODEL_PROVIDER=google_genai
++COPILOT_PLANNER_MODEL=gemini-flash-latest
++
++# Optional: higher Semantic Scholar rate limits (https://www.semanticscholar.org/product/api)
++S2_API_KEY=
++
++# arXiv / S2 ask for a contact in the User-Agent
++COPILOT_USER_AGENT=research-copilot/0.1 (mailto:you@example.com)
++
++# Retrieval knobs
++COPILOT_MAX_PAPERS=20
++COPILOT_LLM_RPM=8
++COPILOT_MAX_RESULTS_PER_QUERY=10
++
+ 
+ # Optional: higher Semantic Scholar rate limits (https://www.semanticscholar.org/product/api)
+ S2_API_KEY=
+@@ -14,16 +26,16 @@ COPILOT_MAX_PAPERS=20
+ COPILOT_MAX_RESULTS_PER_QUERY=10
+ 
+ # Models: cheap for extraction, stronger for writing and judging
+-COPILOT_READER_MODEL=claude-haiku-5-5
+-COPILOT_WRITER_MODEL=claude-sonnet-5-5
+-COPILOT_CRITIC_MODEL=claude-sonnet-5-5
++COPILOT_READER_MODEL=gemini-flash-lite-latest
++COPILOT_WRITER_MODEL=gemini-flash-latest
++COPILOT_CRITIC_MODEL=gemini-flash-latest
+ 
+ # "bge" (sentence-transformers) or "hash" (offline, no download)
+ COPILOT_EMBEDDER=bge
+ COPILOT_SUPPORT_THRESHOLD=0.85
+-COPILOT_MAX_ITERATIONS=2
++COPILOT_MAX_ITERATIONS=1
+ 
+-# --- Deployment ---
++# Deployment 
+ # Gate the API (send as x-api-key) and the UI. Leave unset ONLY for local use:
+ # every run spends LLM tokens.
+ COPILOT_API_KEY=
+diff --git a/.gitignore b/.gitignore
+index c4b15d9..f2f1a1e 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -5,3 +5,4 @@ __pycache__/
+ .pytest_cache/
+ .venv/
+ traces/*.json
++runs
+\ No newline at end of file
+diff --git a/README.md b/README.md
+index c58bcd4..241a872 100644
+--- a/README.md
++++ b/README.md
+@@ -36,10 +36,10 @@ Cheap modes while developing: `--until retrieve` (plan + search, one LLM call),
+ only), `COPILOT_EMBEDDER=hash` (no model download; not semantic).
+ 
+ ## Interfaces
+-- **UI** (`ui/app.py`): live agent trace; tabs for Report, Papers, per-claim Verification, Trace, Downloads.
++- **UI** (`ui/app.py`): live, detailed agent trace (reasoning, plan, searches, papers chosen and why, per-paper reading, every fact-check verdict); tabs for Report, Papers, per-claim Verification, Trace, Downloads.
+ - **API** (`copilot/service.py`): `POST /runs`, `GET /runs/{id}/events` (SSE, resumable), reports as md/html/json.
+   Optional `COPILOT_API_KEY`. See [deploy/API.md](deploy/API.md).
+-- **CLI** (`copilot/cli.py`): writes `report.md`, `report.html`, `run.json`.
++- **CLI** (`copilot/cli.py`): prints every step live (`--brief` for one line each); writes `report.md`, `report.html`, `run.json`.
+ 
+ ## Deploy
+ `docker compose up --build` (UI :7860, API :8000) or follow [deploy/HUGGINGFACE.md](deploy/HUGGINGFACE.md).
+diff --git a/copilot/agents/critic.py b/copilot/agents/critic.py
+index 08a30e2..4697459 100644
+--- a/copilot/agents/critic.py
++++ b/copilot/agents/critic.py
+@@ -17,8 +17,9 @@ from pydantic import BaseModel
+ 
+ from copilot.config import Settings
+ from copilot.graph.routing import budget_exceeded, iterations_left
+-from copilot.graph.state import ClaimCheck, CopilotState, CriticReport, Usage, make_event
++from copilot.graph.state import ClaimCheck, CopilotState, CriticReport, Usage
+ from copilot.llm import structured_call
++from copilot.progress import Tracer
+ 
+ _CITE = re.compile(r"\[cite:([^\]]+)\]")
+ _SENT = re.compile(r"(?<=[.!?])\s+(?=[A-Z\[\"'(])")
+@@ -114,19 +115,31 @@ def verify_claims(
+ 
+ def make_critic_node(llm: Any, store, settings: Settings) -> Callable[[CopilotState], dict]:
+     def critic_node(state: CopilotState) -> dict:
++        trace = Tracer("critic")
+         draft = state["draft"]
+         iteration = state.get("iteration", 0)
+-        can_loop = iterations_left(state, settings) and not budget_exceeded(state, settings)
++        within_iterations = iterations_left(state, settings)
++        over_budget = budget_exceeded(state, settings)
++        can_loop = within_iterations and not over_budget
+ 
+         claims = split_claims(draft.markdown)
++        n_calls = -(-len(claims) // settings.verify_batch_size) if claims else 0
++        trace(f"fact-checking {len(claims)} cited claims against the passages they cite "
++              f"({n_calls} judge call{'s' if n_calls != 1 else ''})", "check")
+         checks, usage = verify_claims(
+             llm, claims, lambda cid: (c.text if (c := store.get(cid)) else None), settings.verify_batch_size
+         )
++        for c in checks:
++            trace(c.claim, "check", verdict=c.verdict, claim=c.claim, reason=c.reason, chunks=c.chunk_ids)
+         rate = support_rate(checks)
++        if rate is not None:
++            trace(f"support rate {rate:.0%} (threshold {settings.support_threshold:.0%}); "
++                  f"{sum(c.verdict != 'supported' for c in checks)} of {len(checks)} claims flagged", "check")
+ 
+         missing: list[str] = []
+         if can_loop and claims:
+             plan = state.get("plan")
++            trace("reviewing coverage: does the draft answer every part of the question?", "check")
+             try:
+                 cov, u = structured_call(llm, CoverageOutput, [
+                     ("system", _prompt("critic_coverage.md")),
+@@ -136,32 +149,38 @@ def make_critic_node(llm: Any, store, settings: Settings) -> Callable[[CopilotSt
+                 ])
+                 usage = usage + u
+                 missing = [t.strip() for t in cov.missing_topics if t.strip()][:4]
+-            except Exception:
+-                missing = []
++            except Exception as exc:
++                trace(f"coverage review failed ({exc!r}); skipping it", "warn")
++            trace("coverage gaps: " + "; ".join(missing) if missing else "no coverage gaps found", "check",
++                  missing=missing)
+ 
+         low_support = rate is not None and rate < settings.support_threshold
+         action: Literal["pass", "revise_draft", "retrieve_more"]
+         if can_loop and missing:
+-            action = "retrieve_more"
++            action, why = "retrieve_more", "gaps found; searching for papers that cover them"
+         elif can_loop and low_support:
+-            action = "revise_draft"
++            action, why = "revise_draft", "too many unsupported claims; sending the flagged ones back to the writer"
+         else:
+             action = "pass"
++            limit = "token budget" if over_budget else "iteration limit"
++            if not claims:
++                why = "no cited claims to verify"
++            elif low_support:                      # can only happen when looping is no longer allowed
++                why = f"{limit} reached; finishing with the quality bar NOT met"
++            elif not can_loop:
++                why = f"claims check out; {limit} reached, so coverage was not re-checked"
++            else:
++                why = "quality bar met"
+         report = CriticReport(
+             passed=(rate is not None and not low_support and not missing),
+             action=action, checks=checks, missing_topics=missing, support_rate=rate,
+         )
+-        flagged = sum(c.verdict != "supported" for c in checks)
++        trace(f"decision: {action} \u2014 {why}", "decision", action=action, reason=why, support_rate=rate)
+         return {
+             "critique": report,
+             "iteration": iteration + 1,
+             "usage": usage,
+-            "trace": [make_event(
+-                "critic",
+-                f"{len(claims)} claims checked, support={rate}, flagged={flagged}, "
+-                f"missing={missing or 'none'} -> {action}",
+-                support_rate=rate, action=action,
+-            )],
++            "trace": trace.events,
+         }
+ 
+     return critic_node
+diff --git a/copilot/agents/planner.py b/copilot/agents/planner.py
+index 222c779..a13b06b 100644
+--- a/copilot/agents/planner.py
++++ b/copilot/agents/planner.py
+@@ -13,9 +13,9 @@ from copilot.graph.state import (
+     SearchFilters,
+     SubQuestion,
+     Usage,
+-    make_event,
+ )
+ from copilot.llm import structured_call
++from copilot.progress import Tracer, short
+ 
+ MAX_SUBQUESTIONS = 6
+ MAX_QUERIES_PER_SUBQUESTION = 3
+@@ -28,6 +28,7 @@ class PlannedSubQuestion(BaseModel):
+ 
+ 
+ class PlannerOutput(BaseModel):
++    reasoning: str = ""          # listed first so the model "thinks" before it plans; shown to the user
+     sub_questions: list[PlannedSubQuestion] = []
+     scope_notes: str = ""
+     year_from: int | None = None
+@@ -96,41 +97,49 @@ def to_plan(out: PlannerOutput, question: str, prior: ResearchPlan | None = None
+ # ---- node ------------------------------------------------------------------ #
+ def make_planner_node(llm: Any) -> Callable[[CopilotState], dict]:
+     def planner_node(state: CopilotState) -> dict:
++        trace = Tracer("planner")
+         question = state["question"]
+         filters = state.get("filters") or SearchFilters()
+         prior = state.get("plan")
+         critique = state.get("critique")
+         missing = critique.missing_topics if critique and critique.action == "retrieve_more" else []
+ 
++        if missing:
++            trace("follow-up: the reviewer found gaps; planning searches for: " + "; ".join(missing), "thinking")
++        else:
++            trace(f"breaking the question into sub-questions: \u201c{short(question, 120)}\u201d", "info")
++
+         messages = [
+             ("system", _system_prompt()),
+             ("human", build_user_prompt(question, filters, prior, missing)),
+         ]
+         update: dict = {}
++        n_before = len(prior.sub_questions) if prior else 0
+         try:
+             out, usage = structured_call(llm, PlannerOutput, messages)
+             plan = to_plan(out, question, prior)
+             if out.year_from and filters.year_from is None:
+                 update["filters"] = filters.model_copy(update={"year_from": out.year_from})
++                trace(f"applying year filter from {out.year_from} (the question asks for recent work)", "info")
+             errors: list[str] = []
++            if out.reasoning.strip():
++                trace(out.reasoning.strip(), "thinking")
++            if plan.scope_notes and not missing:
++                trace("scope: " + plan.scope_notes, "thinking")
+         except Exception as exc:  # network / parsing / provider errors: degrade, don't crash
+-            out, usage = None, Usage()
++            usage = Usage()
+             plan = prior or fallback_plan(question)
+-            errors = [f"planner: LLM call failed ({exc!r}); using {'previous' if prior else 'fallback'} plan"]
+-
+-        update.update(
+-            plan=plan,
+-            usage=usage,
+-            errors=errors,
+-            trace=[
+-                make_event(
+-                    "planner",
+-                    f"plan has {len(plan.sub_questions)} sub-questions, {len(plan.all_queries())} queries",
+-                    sub_questions=[sq.question for sq in plan.sub_questions],
+-                    queries=plan.all_queries(),
+-                )
+-            ],
+-        )
++            msg = f"planner: LLM call failed ({exc!r}); using {'previous' if prior else 'fallback'} plan"
++            errors = [msg]
++            trace(msg, "warn")
++
++        for sq in plan.sub_questions[n_before:]:
++            trace(f"{sq.id} \u00b7 {sq.question}", "plan", queries=sq.queries)
++        n_sq, n_q = len(plan.sub_questions), len(plan.all_queries())
++        trace(f"plan ready: {n_sq} sub-question{'s' * (n_sq != 1)}, {n_q} search quer{'ies' if n_q != 1 else 'y'}", "info",
++              sub_questions=[sq.question for sq in plan.sub_questions], queries=plan.all_queries())
++
++        update.update(plan=plan, usage=usage, errors=errors, trace=trace.events)
+         return update
+ 
+     return planner_node
+diff --git a/copilot/agents/reader.py b/copilot/agents/reader.py
+index 6f0b93c..845226e 100644
+--- a/copilot/agents/reader.py
++++ b/copilot/agents/reader.py
+@@ -12,8 +12,9 @@ from typing import Any, Callable
+ from pydantic import BaseModel
+ 
+ from copilot.config import Settings
+-from copilot.graph.state import Chunk, Paper, PaperNotes, Usage, make_event
++from copilot.graph.state import Chunk, Paper, PaperNotes, Usage
+ from copilot.llm import structured_call
++from copilot.progress import Tracer, short
+ from copilot.tools.chunking import abstract_chunk_id, chunk_pages
+ from copilot.tools.vectorstore import VectorStore
+ 
+@@ -62,15 +63,23 @@ def make_reader_node(
+     llm: Any, store: VectorStore, fetch_pages: FetchPages | None, settings: Settings
+ ) -> Callable[[dict], dict]:
+     def reader_node(task: dict) -> dict:
++        trace = Tracer("reader")
+         paper: Paper = task["paper"]
++        label = short(paper.title, 70)
+         errors: list[str] = []
++        wants_pdf = fetch_pages is not None and bool(paper.pdf_url)
++        trace(f"reading \u201c{label}\u201d ({paper.year or 'n.d.'}) \u2014 "
++              f"{'downloading and parsing PDF' if wants_pdf else 'abstract only'}",
++              "read", paper_id=paper.paper_id)
+ 
+         pages: list[tuple[int, str]] = []
+-        if fetch_pages is not None and paper.pdf_url:
++        if wants_pdf:
+             try:
+-                pages = fetch_pages(paper)
++                pages = fetch_pages(paper)  # type: ignore[misc]
+             except Exception as exc:
+-                errors.append(f"reader: PDF unavailable for {paper.paper_id} ({exc!r}); using abstract only")
++                msg = f"PDF unavailable for \u201c{label}\u201d ({exc!r}); falling back to the abstract"
++                errors.append(f"reader: {paper.paper_id}: {msg}")
++                trace(msg, "warn", paper_id=paper.paper_id)
+ 
+         chunks: list[Chunk] = []
+         if paper.abstract:
+@@ -93,21 +102,15 @@ def make_reader_node(
+             out, usage = structured_call(llm, NotesOut, [("system", _system_prompt()), ("human", prompt)])
+         except Exception as exc:
+             out, usage = NotesOut(problem=paper.abstract[:300]), Usage()
+-            errors.append(f"reader: extraction failed for {paper.paper_id} ({exc!r}); notes are abstract-only")
++            msg = f"extraction failed for \u201c{label}\u201d ({exc!r}); notes are abstract-only"
++            errors.append(f"reader: {paper.paper_id}: {msg}")
++            trace(msg, "warn", paper_id=paper.paper_id)
+ 
+         notes = PaperNotes(paper_id=paper.paper_id, chunk_ids=[c.chunk_id for c in context], **out.model_dump())
+-        return {
+-            "notes": {paper.paper_id: notes},
+-            "usage": usage,
+-            "errors": errors,
+-            "trace": [
+-                make_event(
+-                    "reader",
+-                    f"read {paper.title[:60]!r}: {len(chunks)} chunks "
+-                    f"({'full text' if pages else 'abstract only'})",
+-                    paper_id=paper.paper_id, full_text=bool(pages), n_chunks=len(chunks),
+-                )
+-            ],
+-        }
++        source = f"full text, {len(pages)} pages" if pages else "abstract only"
++        trace(f"notes ready: \u201c{label}\u201d \u00b7 {len(chunks)} chunks stored ({source})", "notes",
++              paper_id=paper.paper_id, full_text=bool(pages), n_chunks=len(chunks), method=notes.method,
++              datasets=notes.datasets, metrics=notes.metrics, limitations=notes.limitations)
++        return {"notes": {paper.paper_id: notes}, "usage": usage, "errors": errors, "trace": trace.events}
+ 
+     return reader_node
+diff --git a/copilot/agents/retriever.py b/copilot/agents/retriever.py
+index 3d46507..c65aad9 100644
+--- a/copilot/agents/retriever.py
++++ b/copilot/agents/retriever.py
+@@ -3,7 +3,8 @@
+ Pipeline
+ --------
+ 1. Collect queries from the plan that have not been searched yet.
+-2. Fan out (source x query) calls in a thread pool; a failing call is logged, not fatal.
++2. Fan out (source x query) calls in a thread pool, reporting each one live as it finishes;
++   a failing call is logged, not fatal.
+ 3. Merge duplicates across sources (arXiv id / DOI / normalised title).
+ 4. Score = reciprocal-rank fusion across result lists + citations + recency + keyword overlap.
+ 5. First pass: shortlist the top ``max_papers``. Follow-up passes (Critic asked for more
+@@ -11,12 +12,14 @@ Pipeline
+ """
+ from __future__ import annotations
+ 
++import time
+ from collections import Counter, defaultdict
+-from concurrent.futures import ThreadPoolExecutor
++from concurrent.futures import ThreadPoolExecutor, as_completed
+ from typing import Callable
+ 
+ from copilot.config import Settings
+-from copilot.graph.state import CopilotState, Paper, SearchFilters, make_event
++from copilot.graph.state import CopilotState, Paper, SearchFilters
++from copilot.progress import Tracer
+ from copilot.tools.papers import PaperIndex
+ from copilot.tools.ranking import RankWeights, rank_papers
+ from copilot.tools.sources import SearchFn, build_sources
+@@ -42,6 +45,7 @@ def make_retriever_node(
+     sources = sources if sources is not None else build_sources(settings)
+ 
+     def retriever_node(state: CopilotState) -> dict:
++        trace = Tracer("retriever")
+         question = state["question"]
+         filters = state.get("filters") or SearchFilters()
+         plan = state.get("plan")
+@@ -51,7 +55,8 @@ def make_retriever_node(
+         done = {q.lower() for q in state.get("searched_queries", [])}
+         queries = [q for q in plan.all_queries() if q.lower() not in done]
+         if not queries:
+-            return {"trace": [make_event("retriever", "no new queries to search")]}
++            trace("no new queries to search", "info")
++            return {"trace": trace.events}
+ 
+         # Preload what we already know so duplicates map onto existing records.
+         existing = state.get("papers", {})
+@@ -59,66 +64,85 @@ def make_retriever_node(
+         index = PaperIndex()
+         preloaded = {index.add(p) for p in existing.values()}
+ 
+-        # Fan out. One failure must not sink the run.
++        trace(f"searching {len(queries)} queries \u00d7 {len(sources)} sources ({', '.join(sources)})", "search")
++
++        def timed(name: str, q: str):
++            t0 = time.perf_counter()
++            return sources[name](q, filters, settings.max_results_per_query), time.perf_counter() - t0
++
++        # Fan out; report each call as it completes. One failure must not sink the run.
+         jobs = [(name, q) for q in queries for name in sources]
++        done_jobs: dict[tuple[str, str], tuple[list[Paper], Exception | None]] = {}
+         with ThreadPoolExecutor(max_workers=settings.retriever_workers) as pool:
+-            futures = [
+-                pool.submit(sources[name], q, filters, settings.max_results_per_query)
+-                for name, q in jobs
+-            ]
+-            outcomes = []
+-            for (name, q), fut in zip(jobs, futures, strict=True):
++            futures = {pool.submit(timed, name, q): (name, q) for name, q in jobs}
++            for fut in as_completed(futures):
++                name, q = futures[fut]
+                 try:
+-                    outcomes.append((name, q, fut.result(), None))
++                    results, dt = fut.result()
++                    done_jobs[(name, q)] = (results, None)
++                    trace(f"{name} \u2190 \u201c{q}\u201d \u00b7 {len(results)} results ({dt:.1f}s)", "search",
++                          source=name, query=q, n=len(results))
+                 except Exception as exc:
+-                    outcomes.append((name, q, [], exc))
++                    done_jobs[(name, q)] = ([], exc)
++                    trace(f"{name} failed for \u201c{q}\u201d: {exc!r}", "warn", source=name, query=q)
+ 
++        # Process in job order so ranking is deterministic regardless of completion order.
+         rrf: defaultdict[int, float] = defaultdict(float)
+         errors: list[str] = []
+         per_source: Counter[str] = Counter()
+-        for name, q, results, exc in outcomes:
++        raw_total = 0
++        for name, q in jobs:
++            results, exc = done_jobs[(name, q)]
+             if exc is not None:
+                 errors.append(f"retriever: {name} failed for {q!r}: {exc!r}")
+                 continue
+             per_source[name] += len(results)
++            raw_total += len(results)
+             for rank, paper in enumerate(results):
+                 rrf[index.add(paper)] += 1.0 / (RRF_K + rank + 1)
+ 
+-        candidates = [
+-            (i, p) for i, p in enumerate(index.papers) if i not in preloaded and _in_range(p, filters)
+-        ]
++        fresh = [(i, p) for i, p in enumerate(index.papers) if i not in preloaded]
++        candidates = [(i, p) for i, p in fresh if _in_range(p, filters)]
++        dropped_year = len(fresh) - len(candidates)
+         ranked = rank_papers(
+             [p for _, p in candidates], [rrf[i] for i, _ in candidates], question, weights=weights
+         )
+ 
+         if old_shortlist:  # follow-up pass: grow, don't reshuffle
+-            fresh = [p.paper_id for p in ranked[: settings.extra_per_pass]]
+-            shortlist = old_shortlist + [pid for pid in fresh if pid not in old_shortlist]
++            fresh_ids = [p.paper_id for p in ranked[: settings.extra_per_pass]]
++            shortlist = old_shortlist + [pid for pid in fresh_ids if pid not in old_shortlist]
++            new_ids = [pid for pid in fresh_ids if pid not in old_shortlist]
+         else:
+             shortlist = [p.paper_id for p in ranked[: filters.max_papers or settings.max_papers]]
++            new_ids = shortlist
+ 
+         by_id = {p.paper_id: p for p in ranked}
+         if not shortlist:
+             errors.append("retriever: no papers found; check queries, filters or API errors")
++            trace("no papers found; check the queries, the year filter, or API errors above", "warn")
++        else:
++            cutoff = by_id[new_ids[-1]].score if new_ids else 0.0
++            note = f"; {dropped_year} outside the year filter" if dropped_year else ""
++            trace(
++                f"{raw_total} raw results \u2192 {len(fresh)} unique papers "
++                f"({raw_total - len(fresh)} duplicates merged{note}). "
++                f"Selected {len(new_ids)} to read (score cut-off {cutoff:.2f})",
++                "papers",
++                papers=[
++                    {"rank": r, "id": pid, "title": by_id[pid].title, "year": by_id[pid].year,
++                     "citations": by_id[pid].citation_count, "score": by_id[pid].score,
++                     "sources": by_id[pid].sources, "n_queries": len(by_id[pid].found_by)}
++                    for r, pid in enumerate(new_ids, 1)
++                ],
++                raw_results=dict(per_source), unique=len(fresh), not_selected=len(ranked) - len(new_ids),
++            )
+ 
+         return {
+             "papers": by_id,
+             "shortlist": shortlist,
+             "searched_queries": queries,
+             "errors": errors,
+-            "trace": [
+-                make_event(
+-                    "retriever",
+-                    f"searched {len(queries)} queries x {len(sources)} sources; "
+-                    f"{len(ranked)} new unique papers; shortlist={len(shortlist)}",
+-                    raw_results=dict(per_source),
+-                    top=[
+-                        {"id": pid, "title": by_id[pid].title, "score": by_id[pid].score}
+-                        for pid in shortlist
+-                        if pid in by_id
+-                    ][:5],
+-                )
+-            ],
++            "trace": trace.events,
+         }
+ 
+     return retriever_node
+diff --git a/copilot/agents/writer.py b/copilot/agents/writer.py
+index 1445913..3c91377 100644
+--- a/copilot/agents/writer.py
++++ b/copilot/agents/writer.py
+@@ -21,9 +21,9 @@ from copilot.graph.state import (
+     CopilotState,
+     Draft,
+     Usage,
+-    make_event,
+ )
+ from copilot.llm import text_call
++from copilot.progress import Tracer
+ from copilot.tools.chunking import abstract_chunk_id
+ from copilot.tools.vectorstore import VectorStore
+ 
+@@ -40,6 +40,7 @@ class EvidenceItem:
+     title: str
+     year: int | None
+     text: str
++    page: int | None = None        # None for abstract chunks
+ 
+ 
+ @lru_cache(maxsize=1)
+@@ -78,7 +79,7 @@ def gather_evidence(
+     for c in list(picked.values())[: settings.max_evidence_chunks]:
+         p = papers.get(c.paper_id)
+         items.append(EvidenceItem(c.chunk_id, c.paper_id, p.title if p else c.paper_id,
+-                                  p.year if p else None, c.text))
++                                  p.year if p else None, c.text, c.page))
+     return items
+ 
+ 
+@@ -172,8 +173,18 @@ def generate_draft(
+     return draft, usage
+ 
+ 
++def group_evidence(evidence: list[EvidenceItem]) -> list[dict]:
++    """[{title, passages: ['p3', 'abstract', ...]}] per paper, for display."""
++    groups: dict[str, dict] = {}
++    for e in evidence:
++        g = groups.setdefault(e.paper_id, {"title": e.title, "passages": []})
++        g["passages"].append(f"p{e.page}" if e.page else "abstract")
++    return list(groups.values())
++
++
+ def make_writer_node(llm: Any, store: VectorStore, settings: Settings) -> Callable[[CopilotState], dict]:
+     def writer_node(state: CopilotState) -> dict:
++        trace = Tracer("writer")
+         previous = state.get("draft")
+         critique = state.get("critique")
+         flagged = (
+@@ -181,29 +192,37 @@ def make_writer_node(llm: Any, store: VectorStore, settings: Settings) -> Callab
+             if critique and critique.action == "revise_draft" else []
+         )
+         missing = critique.missing_topics if critique and critique.action == "retrieve_more" else []
++        version = (previous.version + 1) if previous else 1
+ 
+         evidence = gather_evidence(state, store, settings, previous.cited_chunk_ids if previous else None)
+         if not evidence:
++            trace("no evidence available; cannot write", "warn")
+             return {
+-                "draft": Draft(markdown="_No evidence could be retrieved for this question._",
+-                               version=(previous.version + 1) if previous else 1),
++                "draft": Draft(markdown="_No evidence could be retrieved for this question._", version=version),
+                 "errors": ["writer: no evidence available"],
+-                "trace": [make_event("writer", "no evidence; empty draft")],
++                "trace": trace.events,
+             }
++        groups = group_evidence(evidence)
+         plan = state.get("plan")
++        trace(f"selected {len(evidence)} evidence passages from {len(groups)} papers "
++              f"(best matches per sub-question)", "evidence", papers=groups)
++
++        if flagged:
++            trace(f"revising draft v{version}: fixing {len(flagged)} flagged claim(s)", "draft")
++        elif missing:
++            trace(f"rewriting as draft v{version} with new evidence on: {'; '.join(missing)}", "draft")
++        else:
++            trace(f"writing draft v{version} (every factual sentence must cite a passage)", "draft")
++
+         draft, usage = generate_draft(
+             llm, state["question"], [sq.question for sq in plan.sub_questions] if plan else [],
+             evidence, previous=previous, flagged=flagged, missing_topics=missing,
+         )
+-        return {
+-            "draft": draft,
+-            "usage": usage,
+-            "trace": [make_event(
+-                "writer",
+-                f"draft v{draft.version}: {len(draft.markdown.split())} words, "
+-                f"{len(draft.cited_chunk_ids)} chunks cited, {draft.stripped_citations} invalid citations stripped",
+-                evidence=len(evidence), flagged=len(flagged),
+-            )],
+-        }
++        extra = f"; {draft.stripped_citations} invented citation(s) removed" if draft.stripped_citations else ""
++        trace(f"draft v{draft.version} ready: {len(draft.markdown.split())} words, "
++              f"{len(draft.cited_chunk_ids)} passages cited{extra}", "draft",
++              words=len(draft.markdown.split()), cited=len(draft.cited_chunk_ids),
++              stripped=draft.stripped_citations, flagged=len(flagged))
++        return {"draft": draft, "usage": usage, "trace": trace.events}
+ 
+     return writer_node
+diff --git a/copilot/cli.py b/copilot/cli.py
+index 5351422..0e86cf1 100644
+--- a/copilot/cli.py
++++ b/copilot/cli.py
+@@ -8,6 +8,7 @@ from pathlib import Path
+ from copilot.config import Settings
+ from copilot.graph.state import SearchFilters
+ from copilot.graph.workflow import STAGES, build_copilot
++from copilot.progress import format_event_text
+ from copilot.render import save_run
+ 
+ 
+@@ -21,6 +22,7 @@ def main(argv: list[str] | None = None) -> int:
+     ap.add_argument("--out", type=Path, help="directory for report.md / report.html / run.json")
+     ap.add_argument("--no-fulltext", action="store_true", help="read abstracts only (fast, cheap)")
+     ap.add_argument("--embedder", choices=["bge", "hash"], help="override COPILOT_EMBEDDER")
++    ap.add_argument("--brief", action="store_true", help="one line per step (hide plans, paper lists, verdict reasons)")
+     args = ap.parse_args(argv)
+ 
+     settings = Settings.from_env()
+@@ -30,15 +32,13 @@ def main(argv: list[str] | None = None) -> int:
+     copilot = build_copilot(settings, until=args.until, **kw)
+     filters = SearchFilters(year_from=args.year_from, year_to=args.year_to, max_papers=args.max_papers)
+ 
+-    final, seen = {}, 0
+-    for final in copilot.stream(args.question, filters):
+-        trace = final.get("trace", [])
+-        for ev in trace[seen:]:
+-            print(f"[{ev.agent}] {ev.message}")
+-        seen = len(trace)
++    # every agent step is printed the moment it happens (plan, searches, papers chosen, reading, checks...)
++    final = copilot.run_live(
++        args.question, filters, on_event=lambda ev: print(format_event_text(ev, brief=args.brief), flush=True)
++    )
+ 
+     papers = final.get("papers", {})
+-    print("\nShortlist")
++    print(f"\nShortlist ({len(final.get('shortlist', []))} papers)")
+     for i, pid in enumerate(final.get("shortlist", []), 1):
+         p = papers[pid]
+         print(f"{i:>2}. {p.score:.2f}  {p.year or '----'}  cites={p.citation_count:<5} {p.title[:90]}")
+diff --git a/copilot/graph/state.py b/copilot/graph/state.py
+index 9c16914..3c738ac 100644
+--- a/copilot/graph/state.py
++++ b/copilot/graph/state.py
+@@ -193,14 +193,19 @@ class Usage(BaseModel):
+ 
+ 
+ class TraceEvent(BaseModel):
++    """One step of visible progress. ``kind`` drives how UIs render it:
++    thinking | plan | search | papers | read | notes | evidence | draft | check | decision | warn | info
++    """
++
+     ts: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+     agent: str
+     message: str
++    kind: str = "info"
+     data: dict[str, Any] = {}
+ 
+ 
+-def make_event(agent: str, message: str, **data: Any) -> TraceEvent:
+-    return TraceEvent(agent=agent, message=message, data=data)
++def make_event(agent: str, message: str, *, kind: str = "info", **data: Any) -> TraceEvent:
++    return TraceEvent(agent=agent, message=message, kind=kind, data=data)
+ 
+ 
+ # --------------------------------------------------------------------------- #
+diff --git a/copilot/graph/workflow.py b/copilot/graph/workflow.py
+index 5fcc767..a090721 100644
+--- a/copilot/graph/workflow.py
++++ b/copilot/graph/workflow.py
+@@ -14,10 +14,11 @@ Node names must differ from state keys (``critique`` is the key, ``critic_agent`
+ """
+ from __future__ import annotations
+ 
++from collections import deque
+ from dataclasses import dataclass
+ from functools import partial
+ from pathlib import Path
+-from typing import Any, Literal
++from typing import Any, Callable, Literal
+ 
+ import httpx
+ from langgraph.graph import END, START, StateGraph
+@@ -29,7 +30,7 @@ from copilot.agents.retriever import make_retriever_node
+ from copilot.agents.writer import make_writer_node
+ from copilot.config import Settings
+ from copilot.graph.routing import route_after_critic, route_after_retriever
+-from copilot.graph.state import CopilotState, SearchFilters, make_initial_state
++from copilot.graph.state import CopilotState, SearchFilters, TraceEvent, make_initial_state
+ from copilot.llm import get_llm
+ from copilot.tools.embeddings import Embedder, get_embedder
+ from copilot.tools.http import DiskCache, RateLimiter
+@@ -52,10 +53,34 @@ class Copilot:
+     def run(self, question: str, filters: SearchFilters | None = None) -> CopilotState:
+         return self.graph.invoke(make_initial_state(question, filters), config={"recursion_limit": 60})
+ 
+-    def stream(self, question: str, filters: SearchFilters | None = None):
+-        yield from self.graph.stream(
+-            make_initial_state(question, filters), stream_mode="values", config={"recursion_limit": 60}
+-        )
++    def stream(
++        self,
++        question: str,
++        filters: SearchFilters | None = None,
++        on_event: Callable[[TraceEvent], None] | None = None,
++    ):
++        """Yield the full state after each graph step (as before) and, *as they happen*, call
++        ``on_event`` for every progress event the agents emit (including from parallel Readers)."""
++        for mode, chunk in self.graph.stream(
++            make_initial_state(question, filters),
++            stream_mode=["custom", "values"],
++            config={"recursion_limit": 60},
++        ):
++            if mode == "custom":
++                if on_event is not None and isinstance(chunk, dict) and "event" in chunk:
++                    on_event(TraceEvent(**chunk["event"]))
++            else:
++                yield chunk
++
++    def run_live(
++        self,
++        question: str,
++        filters: SearchFilters | None = None,
++        on_event: Callable[[TraceEvent], None] | None = None,
++    ) -> CopilotState:
++        """Run to completion, reporting progress through ``on_event``; returns the final state."""
++        last = deque(self.stream(question, filters, on_event), maxlen=1)
++        return last[0] if last else make_initial_state(question, filters)
+ 
+     def chunk_text(self, chunk_id: str) -> str | None:
+         c = self.store.get(chunk_id) if self.store else None
+diff --git a/copilot/llm.py b/copilot/llm.py
+index c5eebad..bffacb5 100644
+--- a/copilot/llm.py
++++ b/copilot/llm.py
+@@ -10,17 +10,33 @@ from copilot.graph.state import Usage
+ T = TypeVar("T", bound=BaseModel)
+ 
+ 
+-class StructuredOutputError(RuntimeError):
+-    pass
++import os
++
++_LIMITER = None
++
++
++def _rate_limiter():
++    """One limiter shared by every model, so TOTAL requests/minute stay under the free-tier cap."""
++    global _LIMITER
++    rpm = float(os.environ.get("COPILOT_LLM_RPM", "0"))
++    if rpm > 0 and _LIMITER is None:
++        from langchain_core.rate_limiters import InMemoryRateLimiter
++
++        _LIMITER = InMemoryRateLimiter(requests_per_second=rpm / 60, check_every_n_seconds=0.1, max_bucket_size=1)
++    return _LIMITER
+ 
+ 
+ def get_llm(model: str, provider: str = "anthropic", *, temperature: float = 0.0, max_tokens: int = 2048) -> Any:
+-    """Build a LangChain chat model. Imported lazily so tests don't need provider packages."""
+     from langchain.chat_models import init_chat_model
+ 
+-    return init_chat_model(
+-        model, model_provider=provider, temperature=temperature, max_tokens=max_tokens
+-    )
++    kwargs: dict[str, Any] = {"temperature": temperature}
++    if provider == "ollama":
++        kwargs.update(num_predict=max_tokens, num_ctx=8192)   # Ollama's default context would truncate prompts
++    else:
++        kwargs["max_tokens"] = max_tokens
++    if (limiter := _rate_limiter()) is not None:
++        kwargs["rate_limiter"] = limiter
++    return init_chat_model(model, model_provider=provider, **kwargs)
+ 
+ 
+ def usage_from_message(raw: Any) -> Usage:
+diff --git a/copilot/prompts/planner.md b/copilot/prompts/planner.md
+index 3e157aa..b474e6f 100644
+--- a/copilot/prompts/planner.md
++++ b/copilot/prompts/planner.md
+@@ -3,7 +3,10 @@ You are the Planner in a multi-agent literature-review system.
+ Your job: turn a research question into a search plan that a Retriever will run against
+ arXiv and Semantic Scholar. You do not answer the question.
+ 
+-Produce 3-6 sub-questions that together cover the topic. Aim to cover, where relevant:
++First write `reasoning`: 2-4 plain sentences explaining how you will decompose this question
++and why (what angles matter for it). The user sees this.
++
++Then produce 3-6 sub-questions that together cover the topic. Aim to cover, where relevant:
+ - core approaches / architectures
+ - datasets and benchmarks
+ - evaluation metrics and protocols
+diff --git a/copilot/service.py b/copilot/service.py
+index 41aa6f2..29bb6f5 100644
+--- a/copilot/service.py
++++ b/copilot/service.py
+@@ -22,6 +22,7 @@ import os
+ import threading
+ import time
+ import uuid
++from collections import deque
+ from concurrent.futures import ThreadPoolExecutor
+ from contextlib import asynccontextmanager
+ from dataclasses import dataclass, field
+@@ -111,16 +112,20 @@ class RunManager:
+         self._pool.shutdown(wait=False, cancel_futures=True)
+ 
+     def _work(self, run: Run) -> None:
+-        req, final, seen = run.request, None, 0
++        req, final = run.request, None
+         run.set_status("running")
+         try:
+             copilot = self.factory(req.until, req.fulltext)
+             filters = SearchFilters(year_from=req.year_from, year_to=req.year_to, max_papers=req.max_papers)
+-            for final in copilot.stream(req.question, filters):
+-                trace = final.get("trace", [])
+-                for ev in trace[seen:]:
+-                    run.emit({"type": "trace", **ev.model_dump(mode="json")})
+-                seen = len(trace)
++            # progress events are pushed live (also from parallel Readers), not batched per graph step
++            states = deque(
++                copilot.stream(
++                    req.question, filters,
++                    on_event=lambda ev: run.emit({"type": "trace", **ev.model_dump(mode="json")}),
++                ),
++                maxlen=1,
++            )
++            final = states[0] if states else None
+             if self.out_dir and final:
+                 try:
+                     save_run(self.out_dir / run.id, final)
+diff --git a/deploy/API.md b/deploy/API.md
+index 6e9f468..a4293ab 100644
+--- a/deploy/API.md
++++ b/deploy/API.md
+@@ -21,3 +21,10 @@ Body fields: `question` (10-500 chars), `year_from`, `year_to`, `max_papers` (1-
+ Operational behaviour: at most 2 runs execute concurrently (others queue; 429 when 10 are pending),
+ the 50 most recent runs are kept in memory (all are also saved under `$COPILOT_TRACES_DIR/runs/<id>/`),
+ and a dropped SSE connection can resume with the `Last-Event-ID` header.
++
++## Event format
++Each SSE `trace` event is JSON: `{"type":"trace","agent","kind","message","ts","data"}`. `kind` is one of
++`thinking | plan | search | papers | read | notes | evidence | draft | check | decision | warn | info`;
++`data` holds the details (e.g. `plan` -> `queries`; `papers` -> the ranked shortlist with scores and sources;
++`check` -> `verdict`, `claim`, `reason`; `decision` -> `action`, `reason`). Events are pushed as they happen,
++including from parallel Readers.
+diff --git a/requirements.txt b/requirements.txt
+index 8bfd2e3..b248dd8 100644
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -1,4 +1,4 @@
+-langgraph>=0.2
++langgraph>=0.3
+ langchain>=0.3
+ langchain-anthropic>=0.3
+ pydantic>=2.6
+diff --git a/tests/test_agents.py b/tests/test_agents.py
+index 917b460..38d2f95 100644
+--- a/tests/test_agents.py
++++ b/tests/test_agents.py
+@@ -71,14 +71,16 @@ def test_reader_full_text_and_pdf_failure_fallback():
+     assert n.method == "diffusion over pose tokens" and n.datasets == ["PHOENIX14T"]
+     assert "arxiv:2208.1#abs" in n.chunk_ids and any(c.endswith("#1") for c in n.chunk_ids)
+     assert store.get("arxiv:2208.1#abs") is not None and len(store) >= 3
+-    assert "full text" in ok["trace"][0].message and ok["errors"] == []
++    assert "full text" in ok["trace"][-1].message and ok["errors"] == []
++    assert [e.kind for e in ok["trace"]] == ["read", "notes"] and ok["trace"][-1].data["datasets"] == ["PHOENIX14T"]
+ 
+     def boom(p):
+         raise TimeoutError("pdf down")
+ 
+     store2 = VectorStore(HashingEmbedder())
+     bad = make_reader_node(llm, store2, boom, S)({"paper": paper, "question": "q"})
+-    assert "abstract only" in bad["trace"][0].message and "pdf down" in bad["errors"][0]
++    assert "abstract only" in bad["trace"][-1].message and "pdf down" in bad["errors"][0]
++    assert [e.kind for e in bad["trace"]] == ["read", "warn", "notes"]
+     assert len(store2) == 1                                   # only the abstract chunk exists
+ 
+ 
+diff --git a/tests/test_full_graph.py b/tests/test_full_graph.py
+index 6a1ac21..66a07cd 100644
+--- a/tests/test_full_graph.py
++++ b/tests/test_full_graph.py
+@@ -72,9 +72,11 @@ def test_full_pipeline_with_critic_retrieve_more_loop():
+     final = cp.run("How is sign language produced?", SearchFilters())
+ 
+     # loop ran exactly once: plan -> read -> write -> critic(retrieve_more) -> plan -> ... -> pass
+-    agents = [e.agent for e in final["trace"]]
+-    assert agents.count("planner") == 2 and agents.count("writer") == 2 and agents.count("critic") == 2
+-    assert agents.count("reader") == 5                                  # 3 + 2 new; never re-read
++    kinds = [e.kind for e in final["trace"]]
++    assert kinds.count("papers") == 2 and kinds.count("decision") == 2          # two retrieval passes, two critic runs
++    assert kinds.count("notes") == 5                                            # 3 + 2 new; never re-read
++    assert [e.data["action"] for e in final["trace"] if e.kind == "decision"] == ["retrieve_more", "pass"]
++    assert sum(e.message.startswith("draft v") and "ready" in e.message for e in final["trace"]) == 2
+     assert sorted(fetched) == sorted(set(fetched)) and len(fetched) == 5
+     assert src.calls == ["q1", "q2 metrics"]                           # q1 not searched twice
+     assert len(final["shortlist"]) == 5 and set(final["notes"]) == set(final["shortlist"])
+diff --git a/tests/test_graph.py b/tests/test_graph.py
+index 9d9686e..1147654 100644
+--- a/tests/test_graph.py
++++ b/tests/test_graph.py
+@@ -37,7 +37,7 @@ def test_end_to_end_plan_retrieve_dedupe_rank():
+     assert sum(1 for p in final["papers"].values() if "Gloss-free" in p.title) == 1   # deduped
+     assert final["searched_queries"] == ["sign language production", "sign pose synthesis"]
+     assert final["usage"].total_tokens == 150 and final["errors"] == []
+-    assert [e.agent for e in final["trace"]] == ["planner", "retriever"]
++    assert list(dict.fromkeys(e.agent for e in final["trace"])) == ["planner", "retriever"]
+ 
+ 
+ def test_followup_pass_only_searches_new_queries_and_grows_shortlist():
+diff --git a/tests/test_service.py b/tests/test_service.py
+index 782bf91..84924e0 100644
+--- a/tests/test_service.py
++++ b/tests/test_service.py
+@@ -43,8 +43,12 @@ def test_full_run_summary_events_and_reports(tmp_path):
+         with client.stream("GET", f"/runs/{run_id}/events") as stream:
+             lines = [ln for ln in stream.iter_lines() if ln]
+         events = [json.loads(ln[6:]) for ln in lines if ln.startswith("data: ")]
+-        agents = [e["agent"] for e in events if e["type"] == "trace"]
+-        assert agents[0] == "planner" and agents.count("reader") == 5 and agents[-1] == "critic"
++        traces = [e for e in events if e["type"] == "trace"]
++        kinds = [e["kind"] for e in traces]
++        assert traces[0]["agent"] == "planner" and kinds[-1] == "decision" and kinds.count("notes") == 5
++        assert {"plan", "search", "papers", "read", "evidence", "check"} <= set(kinds)   # the detailed steps are streamed
++        shortlist = next(e for e in traces if e["kind"] == "papers")["data"]["papers"]
++        assert len(shortlist) == 3 and shortlist[0]["title"] and "score" in shortlist[0]
+         assert events[-1] == {"type": "done", "status": "done", "error": None}
+         assert "id: 0" in lines
+ 
+@@ -93,7 +97,7 @@ class _Slow:
+     def __init__(self, gate):
+         self.gate = gate
+ 
+-    def stream(self, question, filters):
++    def stream(self, question, filters, on_event=None):
+         self.gate.wait(5)
+         yield {"question": question}
+ 
+@@ -143,5 +147,5 @@ def test_queue_limit_and_eviction():
+ 
+ 
+ class _Instant:
+-    def stream(self, question, filters):
++    def stream(self, question, filters, on_event=None):
+         yield {"question": question}
+diff --git a/ui/app.py b/ui/app.py
+index 5c7537c..51a03aa 100644
+--- a/ui/app.py
++++ b/ui/app.py
+@@ -17,6 +17,7 @@ import streamlit as st  # noqa: E402
+ from copilot.config import Settings  # noqa: E402
+ from copilot.factory import CopilotFactory  # noqa: E402
+ from copilot.graph.state import SearchFilters  # noqa: E402
++from copilot.progress import format_event_md  # noqa: E402
+ from copilot.render import dumps_state, render_html, render_markdown  # noqa: E402
+ 
+ STAGES = {
+@@ -49,12 +50,10 @@ def run_pipeline(factory, question: str, filters: SearchFilters, until: str, ful
+     st.session_state.pop("result", None)
+     with st.status("Agents working…", expanded=True) as status:
+         try:
+-            final, seen = {}, 0
+-            for final in factory(until, fulltext).stream(question, filters):
+-                trace = final.get("trace", [])
+-                for ev in trace[seen:]:
+-                    st.write(f"**{ev.agent}** · {ev.message}")
+-                seen = len(trace)
++            # each agent step (plan, searches, papers chosen, reading, fact-checks...) is shown as it happens
++            final = factory(until, fulltext).run_live(
++                question, filters, on_event=lambda ev: st.markdown(format_event_md(ev))
++            )
+             st.session_state["result"] = final
+             status.update(label="Done", state="complete", expanded=False)
+         except Exception as exc:
+@@ -107,7 +106,8 @@ def show_result(result: dict) -> None:
+         else:
+             st.info("No verification data for this run.")
+     with trace_tab:
+-        st.dataframe([{"time": e.ts[11:19], "agent": e.agent, "event": e.message} for e in result.get("trace", [])],
++        st.dataframe([{"time": e.ts[11:19], "agent": e.agent, "kind": e.kind, "event": e.message}
++                      for e in sorted(result.get("trace", []), key=lambda e: e.ts)],
+                      use_container_width=True, hide_index=True)
+     with dl_tab:
+         md = render_markdown(result)

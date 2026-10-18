@@ -8,6 +8,7 @@ from pathlib import Path
 from copilot.config import Settings
 from copilot.graph.state import SearchFilters
 from copilot.graph.workflow import STAGES, build_copilot
+from copilot.progress import format_event_text
 from copilot.render import save_run
 
 
@@ -21,6 +22,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--out", type=Path, help="directory for report.md / report.html / run.json")
     ap.add_argument("--no-fulltext", action="store_true", help="read abstracts only (fast, cheap)")
     ap.add_argument("--embedder", choices=["bge", "hash"], help="override COPILOT_EMBEDDER")
+    ap.add_argument("--brief", action="store_true", help="one line per step (hide plans, paper lists, verdict reasons)")
     args = ap.parse_args(argv)
 
     settings = Settings.from_env()
@@ -30,15 +32,13 @@ def main(argv: list[str] | None = None) -> int:
     copilot = build_copilot(settings, until=args.until, **kw)
     filters = SearchFilters(year_from=args.year_from, year_to=args.year_to, max_papers=args.max_papers)
 
-    final, seen = {}, 0
-    for final in copilot.stream(args.question, filters):
-        trace = final.get("trace", [])
-        for ev in trace[seen:]:
-            print(f"[{ev.agent}] {ev.message}")
-        seen = len(trace)
+    # every agent step is printed the moment it happens (plan, searches, papers chosen, reading, checks...)
+    final = copilot.run_live(
+        args.question, filters, on_event=lambda ev: print(format_event_text(ev, brief=args.brief), flush=True)
+    )
 
     papers = final.get("papers", {})
-    print("\nShortlist")
+    print(f"\nShortlist ({len(final.get('shortlist', []))} papers)")
     for i, pid in enumerate(final.get("shortlist", []), 1):
         p = papers[pid]
         print(f"{i:>2}. {p.score:.2f}  {p.year or '----'}  cites={p.citation_count:<5} {p.title[:90]}")

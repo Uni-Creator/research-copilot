@@ -43,8 +43,12 @@ def test_full_run_summary_events_and_reports(tmp_path):
         with client.stream("GET", f"/runs/{run_id}/events") as stream:
             lines = [ln for ln in stream.iter_lines() if ln]
         events = [json.loads(ln[6:]) for ln in lines if ln.startswith("data: ")]
-        agents = [e["agent"] for e in events if e["type"] == "trace"]
-        assert agents[0] == "planner" and agents.count("reader") == 5 and agents[-1] == "critic"
+        traces = [e for e in events if e["type"] == "trace"]
+        kinds = [e["kind"] for e in traces]
+        assert traces[0]["agent"] == "planner" and kinds[-1] == "decision" and kinds.count("notes") == 5
+        assert {"plan", "search", "papers", "read", "evidence", "check"} <= set(kinds)   # the detailed steps are streamed
+        shortlist = next(e for e in traces if e["kind"] == "papers")["data"]["papers"]
+        assert len(shortlist) == 3 and shortlist[0]["title"] and "score" in shortlist[0]
         assert events[-1] == {"type": "done", "status": "done", "error": None}
         assert "id: 0" in lines
 
@@ -93,7 +97,7 @@ class _Slow:
     def __init__(self, gate):
         self.gate = gate
 
-    def stream(self, question, filters):
+    def stream(self, question, filters, on_event=None):
         self.gate.wait(5)
         yield {"question": question}
 
@@ -143,5 +147,5 @@ def test_queue_limit_and_eviction():
 
 
 class _Instant:
-    def stream(self, question, filters):
+    def stream(self, question, filters, on_event=None):
         yield {"question": question}

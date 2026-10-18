@@ -12,8 +12,9 @@ from typing import Any, Callable
 from pydantic import BaseModel
 
 from copilot.config import Settings
-from copilot.graph.state import Chunk, Paper, PaperNotes, Usage, make_event
+from copilot.graph.state import Chunk, Paper, PaperNotes, Usage
 from copilot.llm import structured_call
+from copilot.progress import Tracer, short
 from copilot.tools.chunking import abstract_chunk_id, chunk_pages
 from copilot.tools.vectorstore import VectorStore
 
@@ -62,15 +63,23 @@ def make_reader_node(
     llm: Any, store: VectorStore, fetch_pages: FetchPages | None, settings: Settings
 ) -> Callable[[dict], dict]:
     def reader_node(task: dict) -> dict:
+        trace = Tracer("reader")
         paper: Paper = task["paper"]
+        label = short(paper.title, 70)
         errors: list[str] = []
+        wants_pdf = fetch_pages is not None and bool(paper.pdf_url)
+        trace(f"reading \u201c{label}\u201d ({paper.year or 'n.d.'}) \u2014 "
+              f"{'downloading and parsing PDF' if wants_pdf else 'abstract only'}",
+              "read", paper_id=paper.paper_id)
 
         pages: list[tuple[int, str]] = []
-        if fetch_pages is not None and paper.pdf_url:
+        if wants_pdf:
             try:
-                pages = fetch_pages(paper)
+                pages = fetch_pages(paper)  # type: ignore[misc]
             except Exception as exc:
-                errors.append(f"reader: PDF unavailable for {paper.paper_id} ({exc!r}); using abstract only")
+                msg = f"PDF unavailable for \u201c{label}\u201d ({exc!r}); falling back to the abstract"
+                errors.append(f"reader: {paper.paper_id}: {msg}")
+                trace(msg, "warn", paper_id=paper.paper_id)
 
         chunks: list[Chunk] = []
         if paper.abstract:
@@ -93,21 +102,15 @@ def make_reader_node(
             out, usage = structured_call(llm, NotesOut, [("system", _system_prompt()), ("human", prompt)])
         except Exception as exc:
             out, usage = NotesOut(problem=paper.abstract[:300]), Usage()
-            errors.append(f"reader: extraction failed for {paper.paper_id} ({exc!r}); notes are abstract-only")
+            msg = f"extraction failed for \u201c{label}\u201d ({exc!r}); notes are abstract-only"
+            errors.append(f"reader: {paper.paper_id}: {msg}")
+            trace(msg, "warn", paper_id=paper.paper_id)
 
         notes = PaperNotes(paper_id=paper.paper_id, chunk_ids=[c.chunk_id for c in context], **out.model_dump())
-        return {
-            "notes": {paper.paper_id: notes},
-            "usage": usage,
-            "errors": errors,
-            "trace": [
-                make_event(
-                    "reader",
-                    f"read {paper.title[:60]!r}: {len(chunks)} chunks "
-                    f"({'full text' if pages else 'abstract only'})",
-                    paper_id=paper.paper_id, full_text=bool(pages), n_chunks=len(chunks),
-                )
-            ],
-        }
+        source = f"full text, {len(pages)} pages" if pages else "abstract only"
+        trace(f"notes ready: \u201c{label}\u201d \u00b7 {len(chunks)} chunks stored ({source})", "notes",
+              paper_id=paper.paper_id, full_text=bool(pages), n_chunks=len(chunks), method=notes.method,
+              datasets=notes.datasets, metrics=notes.metrics, limitations=notes.limitations)
+        return {"notes": {paper.paper_id: notes}, "usage": usage, "errors": errors, "trace": trace.events}
 
     return reader_node

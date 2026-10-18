@@ -71,14 +71,16 @@ def test_reader_full_text_and_pdf_failure_fallback():
     assert n.method == "diffusion over pose tokens" and n.datasets == ["PHOENIX14T"]
     assert "arxiv:2208.1#abs" in n.chunk_ids and any(c.endswith("#1") for c in n.chunk_ids)
     assert store.get("arxiv:2208.1#abs") is not None and len(store) >= 3
-    assert "full text" in ok["trace"][0].message and ok["errors"] == []
+    assert "full text" in ok["trace"][-1].message and ok["errors"] == []
+    assert [e.kind for e in ok["trace"]] == ["read", "notes"] and ok["trace"][-1].data["datasets"] == ["PHOENIX14T"]
 
     def boom(p):
         raise TimeoutError("pdf down")
 
     store2 = VectorStore(HashingEmbedder())
     bad = make_reader_node(llm, store2, boom, S)({"paper": paper, "question": "q"})
-    assert "abstract only" in bad["trace"][0].message and "pdf down" in bad["errors"][0]
+    assert "abstract only" in bad["trace"][-1].message and "pdf down" in bad["errors"][0]
+    assert [e.kind for e in bad["trace"]] == ["read", "warn", "notes"]
     assert len(store2) == 1                                   # only the abstract chunk exists
 
 

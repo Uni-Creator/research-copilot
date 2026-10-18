@@ -17,6 +17,7 @@ import streamlit as st  # noqa: E402
 from copilot.config import Settings  # noqa: E402
 from copilot.factory import CopilotFactory  # noqa: E402
 from copilot.graph.state import SearchFilters  # noqa: E402
+from copilot.progress import format_event_md  # noqa: E402
 from copilot.render import dumps_state, render_html, render_markdown  # noqa: E402
 
 STAGES = {
@@ -49,12 +50,10 @@ def run_pipeline(factory, question: str, filters: SearchFilters, until: str, ful
     st.session_state.pop("result", None)
     with st.status("Agents working…", expanded=True) as status:
         try:
-            final, seen = {}, 0
-            for final in factory(until, fulltext).stream(question, filters):
-                trace = final.get("trace", [])
-                for ev in trace[seen:]:
-                    st.write(f"**{ev.agent}** · {ev.message}")
-                seen = len(trace)
+            # each agent step (plan, searches, papers chosen, reading, fact-checks...) is shown as it happens
+            final = factory(until, fulltext).run_live(
+                question, filters, on_event=lambda ev: st.markdown(format_event_md(ev))
+            )
             st.session_state["result"] = final
             status.update(label="Done", state="complete", expanded=False)
         except Exception as exc:
@@ -107,7 +106,8 @@ def show_result(result: dict) -> None:
         else:
             st.info("No verification data for this run.")
     with trace_tab:
-        st.dataframe([{"time": e.ts[11:19], "agent": e.agent, "event": e.message} for e in result.get("trace", [])],
+        st.dataframe([{"time": e.ts[11:19], "agent": e.agent, "kind": e.kind, "event": e.message}
+                      for e in sorted(result.get("trace", []), key=lambda e: e.ts)],
                      use_container_width=True, hide_index=True)
     with dl_tab:
         md = render_markdown(result)

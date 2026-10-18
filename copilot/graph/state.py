@@ -193,14 +193,19 @@ class Usage(BaseModel):
 
 
 class TraceEvent(BaseModel):
+    """One step of visible progress. ``kind`` drives how UIs render it:
+    thinking | plan | search | papers | read | notes | evidence | draft | check | decision | warn | info
+    """
+
     ts: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     agent: str
     message: str
+    kind: str = "info"
     data: dict[str, Any] = {}
 
 
-def make_event(agent: str, message: str, **data: Any) -> TraceEvent:
-    return TraceEvent(agent=agent, message=message, data=data)
+def make_event(agent: str, message: str, *, kind: str = "info", **data: Any) -> TraceEvent:
+    return TraceEvent(agent=agent, message=message, kind=kind, data=data)
 
 
 # --------------------------------------------------------------------------- #
