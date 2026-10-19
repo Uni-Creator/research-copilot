@@ -94,7 +94,7 @@ def to_plan(out: PlannerOutput, question: str, prior: ResearchPlan | None = None
     return ResearchPlan(sub_questions=existing + added, scope_notes=notes)
 
 
-# ---- node ------------------------------------------------------------------ #
+# node 
 def make_planner_node(llm: Any) -> Callable[[CopilotState], dict]:
     def planner_node(state: CopilotState) -> dict:
         trace = Tracer("planner")

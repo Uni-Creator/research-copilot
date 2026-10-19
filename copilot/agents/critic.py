@@ -126,8 +126,18 @@ def make_critic_node(llm: Any, store, settings: Settings) -> Callable[[CopilotSt
         n_calls = -(-len(claims) // settings.verify_batch_size) if claims else 0
         trace(f"fact-checking {len(claims)} cited claims against the passages they cite "
               f"({n_calls} judge call{'s' if n_calls != 1 else ''})", "check")
+        def get_chunk(cid: str) -> str | None:
+            if (c := store.get(cid)) is not None:
+                return c.text
+            from copilot.tools.chunking import paper_id_of
+            pid = paper_id_of(cid)
+            p = state.get("papers", {}).get(pid)
+            if p and p.abstract:
+                return p.abstract
+            return None
+
         checks, usage = verify_claims(
-            llm, claims, lambda cid: (c.text if (c := store.get(cid)) else None), settings.verify_batch_size
+            llm, claims, get_chunk, settings.verify_batch_size
         )
         for c in checks:
             trace(c.claim, "check", verdict=c.verdict, claim=c.claim, reason=c.reason, chunks=c.chunk_ids)

@@ -16,15 +16,39 @@ _ID = re.compile(r"abs/(.+?)(?:v\d+)?$")
 
 
 def build_arxiv_query(query: str, filters: SearchFilters, mode: str = "and") -> str:
-    """Natural-language query -> arXiv ``search_query`` string (AND/OR over keywords)."""
-    tokens = tokenize(query)[:8]
-    joiner = " AND " if mode == "and" else " OR "
-    q = joiner.join(f"all:{t}" for t in tokens) or f"all:{query}"
+    """Natural-language query -> arXiv ``search_query`` string.
+
+    Strategy
+    --------
+    * AND mode  (strict): top-8 tokens matched across ALL fields, plus title-field
+      boost (ti:) for the top-4 tokens so that papers where the title contains the
+      keywords are ranked higher.
+    * OR mode  (broad fallback): top-6 tokens across all fields.
+    * A year-range filter is appended when requested.
+
+    This two-field approach dramatically improves recall for known-item retrieval
+    where the paper's distinctive title words are part of the query (e.g. a model
+    name like "Signs as Tokens" will match ``ti:signs AND ti:tokens`` as well as
+    the broader ``all:sign AND all:language`` query).
+    """
+    tokens = tokenize(query)
+    if not tokens:
+        base = f"all:{query.strip()}"
+    elif mode == "and":
+        # Combine all: tokens (broad) with ti: tokens (precise title match)
+        all_terms = " AND ".join(f"all:{t}" for t in tokens[:8])
+        ti_terms = " AND ".join(f"ti:{t}" for t in tokens[:4])
+        # Match broad fields AND (any of: title tokens match)
+        base = f"({all_terms}) OR ({ti_terms})"
+    else:
+        # OR fallback: broader, uses top 6 tokens
+        base = " OR ".join(f"all:{t}" for t in tokens[:6])
+
     if filters.year_from or filters.year_to:
         lo = f"{filters.year_from or 1991}01010000"
         hi = f"{filters.year_to or 2100}12312359"
-        q = f"({q}) AND submittedDate:[{lo} TO {hi}]"
-    return q
+        base = f"({base}) AND submittedDate:[{lo} TO {hi}]"
+    return base
 
 
 def _text(node: ET.Element | None) -> str:

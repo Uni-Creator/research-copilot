@@ -13,11 +13,13 @@
    ---
    ```
 3. In **Settings -> Variables and secrets** add:
-   - `ANTHROPIC_API_KEY` (secret)
+   - `GOOGLE_API_KEY` (secret, or `ANTHROPIC_API_KEY` if using Anthropic)
+   - `OPENALEX_API_KEY` (optional, for higher rate limits)
+   - `OPENALEX_MAILTO` (polite pool contact email)
    - `COPILOT_UI_PASSWORD` (secret) - **strongly recommended**: a public Space without it lets
      anyone spend your API credit
    - `COPILOT_UI_MAX_PAPERS=15` and optionally `COPILOT_MAX_TOTAL_TOKENS=250000` (per-run token cap)
-   - `COPILOT_USER_AGENT=research-copilot/1.0 (mailto:you@yourdomain)` (arXiv / Semantic Scholar etiquette)
+   - `COPILOT_USER_AGENT=research-copilot/1.0 (mailto:you@yourdomain)` (arXiv / OpenAlex etiquette)
 4. The default `APP=ui` entrypoint listens on `$PORT` (7860). `scripts/start.sh` relaxes Streamlit's
    CORS/XSRF settings automatically when it detects a Space (`SPACE_ID`).
 

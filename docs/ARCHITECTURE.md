@@ -11,7 +11,8 @@ flowchart LR
   C -->|revise_draft| W
   C -->|retrieve_more| P
   R -.-> S1[(arXiv)]
-  R -.-> S2[(Semantic Scholar)]
+  R -.-> S2[(OpenAlex)]
+  R -.-> S3[(Semantic Scholar)]
   RD -.-> V[(Vector store)]
   W -.-> V
   C -.-> V
@@ -53,16 +54,22 @@ shortlist instead of reshuffling it.
 | API run fails | status `error` with the exception; SSE stream ends with a `done` event |
 
 ## Cost / latency levers
-Cheap model for Planner and Reader (many calls), stronger model for Writer and Critic. Reader fan-out is
-parallel, so wall-clock is dominated by the arXiv rate limit (3 s/request, shared across runs) on a cold
-cache. Everything fetched is cached on disk; embeddings of already-read papers are reused through the shared
-vector store. `--until retrieve` costs one LLM call.
+Configurable LLMs per agent role (Planner, Reader, Writer, Critic) with rate limiting (`COPILOT_LLM_RPM`).
+Reader fan-out is parallel, so wall-clock is bounded by external API etiquette (arXiv 3 s/request, OpenAlex
+polite pool / API key). Everything fetched is cached on disk; embeddings of already-read papers are reused through
+the shared vector store. `--until retrieve` costs one LLM call; `--no-fulltext` reads abstracts only.
+
+## Retrieval and Ranking
+- **Multi-source search**: Queries arXiv with dual-field targeting (title and abstract) and OpenAlex via their
+  structured search API with polite pool support. Optional Semantic Scholar fallback.
+- **MMR Re-ranking**: Maximal Marginal Relevance balances relevance score (query overlap, citation weight,
+  recency dampening, subquestion alignment) against candidate redundancy (Jaccard token similarity) using `lambda_mult=0.7`.
+- **Ranked evaluation metrics**: The eval suite reports Mean Subquestion Coverage, Precision@k, Recall@k,
+  nDCG@k, MRR, Mean Average Precision (MAP), and Claim Support Rate.
 
 ## Known limitations
-- Sources are arXiv + Semantic Scholar only. Venues outside them (parts of the ISL / regional literature) will
-  be under-represented; add a source behind the `SearchFn` interface in `copilot/tools/sources.py`.
-- PDF text extraction is plain text: tables, equations and figures are lost; first 15 pages only.
-- Ranking is a deterministic heuristic (rank fusion + citations + recency + keyword overlap), not learned.
-- Token usage is tracked; dollar cost is not (prices change).
-- The vector store lives in memory (`save`/`load` exist but are not wired to the services); the API keeps the 50
-  most recent runs in memory (all runs are also written to disk).
+- Primary academic sources are arXiv and OpenAlex (with optional Semantic Scholar). Non-indexed regional venues
+  require implementing custom adapters behind `SearchFn`.
+- PDF text extraction is plain text: tables, equations, and figures are lost; first 15 pages only.
+- Token usage is tracked; dollar cost is not.
+- The vector store lives in memory; the API keeps the 50 most recent runs in memory (all runs are persisted to disk).

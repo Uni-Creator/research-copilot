@@ -36,10 +36,14 @@ def test_parse_arxiv_feed():
 
 def test_build_arxiv_query():
     q = build_arxiv_query("the sign language production approaches", SearchFilters())
-    assert q == "all:sign AND all:language AND all:production"
-    assert build_arxiv_query("sign language", SearchFilters(), "or") == "all:sign OR all:language"
+    # AND mode should produce both all: and ti: clauses for broader + precise matching
+    assert "all:sign AND all:language AND all:production" in q
+    assert "ti:sign AND ti:language AND ti:production" in q
+    or_q = build_arxiv_query("sign language", SearchFilters(), "or")
+    assert or_q == "all:sign OR all:language"
     dated = build_arxiv_query("sign language", SearchFilters(year_from=2021, year_to=2024))
     assert "submittedDate:[202101010000 TO 202412312359]" in dated
+
 
 
 def test_s2_parsing():

@@ -104,8 +104,16 @@ def make_retriever_node(
         fresh = [(i, p) for i, p in enumerate(index.papers) if i not in preloaded]
         candidates = [(i, p) for i, p in fresh if _in_range(p, filters)]
         dropped_year = len(fresh) - len(candidates)
+        sq_contexts = (
+            [f"{sq.question} {' '.join(sq.queries)}" for sq in plan.sub_questions]
+            if plan and plan.sub_questions else []
+        )
         ranked = rank_papers(
-            [p for _, p in candidates], [rrf[i] for i, _ in candidates], question, weights=weights
+            [p for _, p in candidates],
+            [rrf[i] for i, _ in candidates],
+            question,
+            sub_questions=sq_contexts,
+            weights=weights,
         )
 
         if old_shortlist:  # follow-up pass: grow, don't reshuffle

@@ -1,7 +1,7 @@
 # Using the HTTP API
 
 ```bash
-docker run -p 8000:8000 -e APP=api -e ANTHROPIC_API_KEY=... -e COPILOT_API_KEY=secret research-copilot
+docker run -p 8000:8000 -e APP=api -e GOOGLE_API_KEY=... -e OPENALEX_API_KEY=... -e COPILOT_API_KEY=secret research-copilot
 
 # start a run
 curl -s -X POST localhost:8000/runs -H 'x-api-key: secret' -H 'content-type: application/json' \

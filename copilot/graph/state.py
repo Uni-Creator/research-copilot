@@ -66,11 +66,14 @@ class Paper(BaseModel):
 
     def keys(self) -> list[str]:
         """Identity keys used to detect duplicates across sources."""
+        import re
         ks: list[str] = []
         if self.arxiv_id:
-            ks.append(f"arxiv:{self.arxiv_id}")
+            norm_arxiv = re.sub(r"v\d+$", "", self.arxiv_id.strip()).lower()
+            ks.append(f"arxiv:{norm_arxiv}")
         if self.doi:
-            ks.append(f"doi:{self.doi.lower()}")
+            norm_doi = re.sub(r"^https?://doi\.org/", "", self.doi.strip(), flags=re.IGNORECASE).lower()
+            ks.append(f"doi:{norm_doi}")
         nt = normalize_title(self.title)
         if nt:
             ks.append(f"title:{nt}")

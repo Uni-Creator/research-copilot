@@ -19,16 +19,17 @@ def _float(name: str, default: float) -> float:
 @dataclass(frozen=True)
 class Settings:
     # models: cheap model for structured extraction, stronger one for writing/judging
-    planner_model: str = "claude-haiku-5-5"
-    reader_model: str = "claude-haiku-5-5"
-    writer_model: str = "claude-sonnet-5-5"
-    critic_model: str = "claude-sonnet-5-5"
-    model_provider: str = "anthropic"
+    planner_model: str = "gemini-3.5-flash-lite"
+    reader_model: str = "gemini-3.5-flash-lite"
+    writer_model: str = "gemini-3.5-flash-lite"
+    critic_model: str = "gemini-3.5-flash-lite"
+    model_provider: str = "google_genai"
     # retrieval
-    s2_api_key: str | None = None
+    openalex_api_key: str | None = None
+    openalex_mailto: str | None = None
     max_papers: int = 20            # shortlist size on the first pass
     extra_per_pass: int = 5         # papers added per "retrieve more" loop
-    max_results_per_query: int = 10
+    max_results_per_query: int = 15
     retriever_workers: int = 4
     # reading
     embedder: str = "bge"           # "bge" (sentence-transformers) | "hash" (offline, tests/dev)
@@ -47,7 +48,7 @@ class Settings:
     max_total_tokens: int = 400_000
     # http / cache
     http_timeout: float = 20.0
-    user_agent: str = "research-copilot/0.1 (mailto:you@example.com)"
+    user_agent: str = "research-copilot/0.1"
     cache_dir: Path = Path(".cache")
     cache_ttl_days: int = 7
     traces_dir: Path = Path("traces")
@@ -63,7 +64,8 @@ class Settings:
             writer_model=e("COPILOT_WRITER_MODEL", d.writer_model),
             critic_model=e("COPILOT_CRITIC_MODEL", d.critic_model),
             model_provider=e("COPILOT_MODEL_PROVIDER", d.model_provider),
-            s2_api_key=e("S2_API_KEY") or None,
+            openalex_api_key=e("OPENALEX_API_KEY") or None,
+            openalex_mailto=e("OPENALEX_MAILTO") or None,
             max_papers=_int("COPILOT_MAX_PAPERS", d.max_papers),
             extra_per_pass=_int("COPILOT_EXTRA_PER_PASS", d.extra_per_pass),
             max_results_per_query=_int("COPILOT_MAX_RESULTS_PER_QUERY", d.max_results_per_query),
