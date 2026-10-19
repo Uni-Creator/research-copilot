@@ -1,4 +1,5 @@
 """Semantic Scholar Graph API search."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -25,9 +26,7 @@ def parse_s2_item(item: dict[str, Any], query: str = "") -> Paper | None:
         return None
     ext = item.get("externalIds") or {}
     arxiv_id = ext.get("ArXiv")
-    pdf = (item.get("openAccessPdf") or {}).get("url") or (
-        f"https://arxiv.org/pdf/{arxiv_id}" if arxiv_id else None
-    )
+    pdf = (item.get("openAccessPdf") or {}).get("url") or (f"https://arxiv.org/pdf/{arxiv_id}" if arxiv_id else None)
     return Paper(
         title=title,
         authors=[a.get("name", "") for a in item.get("authors") or [] if a.get("name")],

@@ -10,6 +10,7 @@ Pipeline
 5. First pass: shortlist the top ``max_papers``. Follow-up passes (Critic asked for more
    evidence): keep the old shortlist and append the best ``extra_per_pass`` new papers.
 """
+
 from __future__ import annotations
 
 import time
@@ -80,8 +81,13 @@ def make_retriever_node(
                 try:
                     results, dt = fut.result()
                     done_jobs[(name, q)] = (results, None)
-                    trace(f"{name} \u2190 \u201c{q}\u201d \u00b7 {len(results)} results ({dt:.1f}s)", "search",
-                          source=name, query=q, n=len(results))
+                    trace(
+                        f"{name} \u2190 \u201c{q}\u201d \u00b7 {len(results)} results ({dt:.1f}s)",
+                        "search",
+                        source=name,
+                        query=q,
+                        n=len(results),
+                    )
                 except Exception as exc:
                     done_jobs[(name, q)] = ([], exc)
                     trace(f"{name} failed for \u201c{q}\u201d: {exc!r}", "warn", source=name, query=q)
@@ -106,7 +112,8 @@ def make_retriever_node(
         dropped_year = len(fresh) - len(candidates)
         sq_contexts = (
             [f"{sq.question} {' '.join(sq.queries)}" for sq in plan.sub_questions]
-            if plan and plan.sub_questions else []
+            if plan and plan.sub_questions
+            else []
         )
         ranked = rank_papers(
             [p for _, p in candidates],
@@ -137,12 +144,21 @@ def make_retriever_node(
                 f"Selected {len(new_ids)} to read (score cut-off {cutoff:.2f})",
                 "papers",
                 papers=[
-                    {"rank": r, "id": pid, "title": by_id[pid].title, "year": by_id[pid].year,
-                     "citations": by_id[pid].citation_count, "score": by_id[pid].score,
-                     "sources": by_id[pid].sources, "n_queries": len(by_id[pid].found_by)}
+                    {
+                        "rank": r,
+                        "id": pid,
+                        "title": by_id[pid].title,
+                        "year": by_id[pid].year,
+                        "citations": by_id[pid].citation_count,
+                        "score": by_id[pid].score,
+                        "sources": by_id[pid].sources,
+                        "n_queries": len(by_id[pid].found_by),
+                    }
                     for r, pid in enumerate(new_ids, 1)
                 ],
-                raw_results=dict(per_source), unique=len(fresh), not_selected=len(ranked) - len(new_ids),
+                raw_results=dict(per_source),
+                unique=len(fresh),
+                not_selected=len(ranked) - len(new_ids),
             )
 
         return {

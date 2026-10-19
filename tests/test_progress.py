@@ -21,7 +21,7 @@ def test_events_stream_live_with_detail_and_in_a_sensible_order():
     assert states[-1]["critique"].action == "pass" and states[-1]["iteration"] == 2
 
     kinds = [e.kind for e in events]
-    assert kinds[0] == "info" and events[0].agent == "planner"                      # first sign of life is immediate
+    assert kinds[0] == "info" and events[0].agent == "planner"  # first sign of life is immediate
     assert "plan" in kinds and "search" in kinds and "papers" in kinds
     # the plan (with its queries) is visible, and comes before any search result
     plans = [e for e in events if e.kind == "plan"]
@@ -56,19 +56,38 @@ def test_events_come_from_multiple_reader_threads_without_loss():
     for _ in cp.stream("How is sign language produced?", on_event=collect):
         pass
     assert sum(e.kind == "notes" for e in events) == 5
-    assert threads == {threading.main_thread().name}        # delivered to the caller's thread, safe for Streamlit
+    assert threads == {threading.main_thread().name}  # delivered to the caller's thread, safe for Streamlit
 
 
 def test_formatters_show_the_details():
-    plan = make_event("planner", "sq1 · What architectures exist?", kind="plan", queries=["sign language production", "pose synthesis"])
+    plan = make_event(
+        "planner",
+        "sq1 · What architectures exist?",
+        kind="plan",
+        queries=["sign language production", "pose synthesis"],
+    )
     txt = format_event_text(plan)
     assert txt.splitlines()[0] == "[planner] sq1 · What architectures exist?"
     assert "search: sign language production" in txt and "search: pose synthesis" in txt
     assert format_event_text(plan, brief=True).count("\n") == 0
 
-    papers = make_event("retriever", "picked", kind="papers", papers=[
-        {"rank": 1, "id": "arxiv:1", "title": "Progressive Transformers", "year": 2020, "citations": 300,
-         "score": 0.91, "sources": ["arxiv", "semantic_scholar"], "n_queries": 2}])
+    papers = make_event(
+        "retriever",
+        "picked",
+        kind="papers",
+        papers=[
+            {
+                "rank": 1,
+                "id": "arxiv:1",
+                "title": "Progressive Transformers",
+                "year": 2020,
+                "citations": 300,
+                "score": 0.91,
+                "sources": ["arxiv", "semantic_scholar"],
+                "n_queries": 2,
+            }
+        ],
+    )
     assert "Progressive Transformers" in format_event_text(papers) and "0.91" in format_event_text(papers)
     assert "[arxiv, semantic_scholar; 2 queries]" in format_event_text(papers)
 

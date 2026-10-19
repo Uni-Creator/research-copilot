@@ -7,6 +7,7 @@ Shared across every run served by one process:
   * the vector store (a paper read in one run is not re-embedded in the next)
 Anything can be overridden with keyword arguments (tests inject fakes this way).
 """
+
 from __future__ import annotations
 
 import threading

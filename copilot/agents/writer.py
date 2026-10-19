@@ -7,6 +7,7 @@ Grounding mechanics
 * Aliases are mapped back to real chunk ids; any alias that does not exist is *stripped* and
   counted (``Draft.stripped_citations``), so a fabricated citation can never reach the report.
 """
+
 from __future__ import annotations
 
 import re
@@ -40,7 +41,7 @@ class EvidenceItem:
     title: str
     year: int | None
     text: str
-    page: int | None = None        # None for abstract chunks
+    page: int | None = None  # None for abstract chunks
 
 
 @lru_cache(maxsize=1)
@@ -57,11 +58,12 @@ def gather_evidence(
     plan = state.get("plan")
     queries = (
         [f"{sq.question} {' '.join(sq.queries)}" for sq in plan.sub_questions]
-        if plan and plan.sub_questions else [state["question"]]
+        if plan and plan.sub_questions
+        else [state["question"]]
     )
 
     picked: dict[str, Any] = {}
-    for cid in keep_chunk_ids or []:                    # revision: keep what was already cited
+    for cid in keep_chunk_ids or []:  # revision: keep what was already cited
         c = store.get(cid)
         if c is not None and c.paper_id in allowed:
             picked.setdefault(cid, c)
@@ -69,7 +71,7 @@ def gather_evidence(
         for chunk, _ in store.search(q, k=settings.evidence_per_subquestion, paper_ids=allowed):
             picked.setdefault(chunk.chunk_id, chunk)
     represented = {c.paper_id for c in picked.values()}
-    for pid in shortlist:                               # make sure every paper has a voice
+    for pid in shortlist:  # make sure every paper has a voice
         if len(picked) >= settings.max_evidence_chunks:
             break
         if pid not in represented and (a := store.get(abstract_chunk_id(pid))) is not None:
@@ -78,16 +80,19 @@ def gather_evidence(
     items = []
     for c in list(picked.values())[: settings.max_evidence_chunks]:
         p = papers.get(c.paper_id)
-        items.append(EvidenceItem(c.chunk_id, c.paper_id, p.title if p else c.paper_id,
-                                  p.year if p else None, c.text, c.page))
+        items.append(
+            EvidenceItem(c.chunk_id, c.paper_id, p.title if p else c.paper_id, p.year if p else None, c.text, c.page)
+        )
     return items
 
 
 def to_aliases(markdown: str, real_to_alias: dict[str, str]) -> str:
     """Rewrite real [cite:<chunk_id>] tags as [cite:C#] for the prompt; drop unknown ones."""
+
     def sub(m: re.Match) -> str:
         alias = real_to_alias.get(m.group(1).strip())
         return f"[cite:{alias}]" if alias else ""
+
     return _REAL.sub(sub, markdown)
 
 
@@ -154,22 +159,30 @@ def generate_draft(
     parts = [f"Research question: {question}"]
     if sub_questions:
         parts.append("Topics to cover (one section each):\n" + "\n".join(f"- {q}" for q in sub_questions))
-    parts.append("EVIDENCE:\n" + "\n\n".join(
-        f"[{real_to_alias[e.chunk_id]}] {e.title} ({e.year or 'n.d.'})\n{e.text[:EVIDENCE_CHARS]}"
-        for e in evidence
-    ))
+    parts.append(
+        "EVIDENCE:\n"
+        + "\n\n".join(
+            f"[{real_to_alias[e.chunk_id]}] {e.title} ({e.year or 'n.d.'})\n{e.text[:EVIDENCE_CHARS]}" for e in evidence
+        )
+    )
     if previous:
         parts.append("PREVIOUS DRAFT:\n" + to_aliases(previous.markdown, real_to_alias))
     if flagged:
-        parts.append("Reviewer problems (fix or remove these claims):\n" + "\n".join(
-            f"- {c.claim} -> {c.verdict}: {c.reason}" for c in flagged))
+        parts.append(
+            "Reviewer problems (fix or remove these claims):\n"
+            + "\n".join(f"- {c.claim} -> {c.verdict}: {c.reason}" for c in flagged)
+        )
     if missing_topics:
         parts.append("New evidence was added for these gaps: " + "; ".join(missing_topics))
 
     text, usage = text_call(llm, [("system", _system_prompt()), ("human", "\n\n".join(parts))])
     markdown, cited, stripped = resolve_citations(text, alias_to_real)
-    draft = Draft(markdown=markdown, cited_chunk_ids=cited, stripped_citations=stripped,
-                  version=(previous.version + 1) if previous else 1)
+    draft = Draft(
+        markdown=markdown,
+        cited_chunk_ids=cited,
+        stripped_citations=stripped,
+        version=(previous.version + 1) if previous else 1,
+    )
     return draft, usage
 
 
@@ -189,7 +202,8 @@ def make_writer_node(llm: Any, store: VectorStore, settings: Settings) -> Callab
         critique = state.get("critique")
         flagged = (
             [c for c in critique.checks if c.verdict != "supported"]
-            if critique and critique.action == "revise_draft" else []
+            if critique and critique.action == "revise_draft"
+            else []
         )
         missing = critique.missing_topics if critique and critique.action == "retrieve_more" else []
         version = (previous.version + 1) if previous else 1
@@ -204,8 +218,11 @@ def make_writer_node(llm: Any, store: VectorStore, settings: Settings) -> Callab
             }
         groups = group_evidence(evidence)
         plan = state.get("plan")
-        trace(f"selected {len(evidence)} evidence passages from {len(groups)} papers "
-              f"(best matches per sub-question)", "evidence", papers=groups)
+        trace(
+            f"selected {len(evidence)} evidence passages from {len(groups)} papers (best matches per sub-question)",
+            "evidence",
+            papers=groups,
+        )
 
         if flagged:
             trace(f"revising draft v{version}: fixing {len(flagged)} flagged claim(s)", "draft")
@@ -215,14 +232,24 @@ def make_writer_node(llm: Any, store: VectorStore, settings: Settings) -> Callab
             trace(f"writing draft v{version} (every factual sentence must cite a passage)", "draft")
 
         draft, usage = generate_draft(
-            llm, state["question"], [sq.question for sq in plan.sub_questions] if plan else [],
-            evidence, previous=previous, flagged=flagged, missing_topics=missing,
+            llm,
+            state["question"],
+            [sq.question for sq in plan.sub_questions] if plan else [],
+            evidence,
+            previous=previous,
+            flagged=flagged,
+            missing_topics=missing,
         )
         extra = f"; {draft.stripped_citations} invented citation(s) removed" if draft.stripped_citations else ""
-        trace(f"draft v{draft.version} ready: {len(draft.markdown.split())} words, "
-              f"{len(draft.cited_chunk_ids)} passages cited{extra}", "draft",
-              words=len(draft.markdown.split()), cited=len(draft.cited_chunk_ids),
-              stripped=draft.stripped_citations, flagged=len(flagged))
+        trace(
+            f"draft v{draft.version} ready: {len(draft.markdown.split())} words, "
+            f"{len(draft.cited_chunk_ids)} passages cited{extra}",
+            "draft",
+            words=len(draft.markdown.split()),
+            cited=len(draft.cited_chunk_ids),
+            stripped=draft.stripped_citations,
+            flagged=len(flagged),
+        )
         return {"draft": draft, "usage": usage, "trace": trace.events}
 
     return writer_node

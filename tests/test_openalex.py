@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from copilot.tools.openalex import parse_openalex_work, reconstruct_abstract, year_filter
 from copilot.graph.state import SearchFilters
+from copilot.tools.openalex import parse_openalex_work, reconstruct_abstract, year_filter
 
 
 def test_reconstruct_abstract_uses_word_positions() -> None:

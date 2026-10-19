@@ -1,4 +1,5 @@
 """Split parsed PDF pages into citable chunks."""
+
 from __future__ import annotations
 
 import re
@@ -63,6 +64,5 @@ def chunk_pages(
 
     pieces = [(pg, t) for pg, t in pieces if len(t) >= MIN_CHUNK_CHARS][:max_chunks]
     return [
-        Chunk(chunk_id=f"{paper_id}#{i}", paper_id=paper_id, text=t, page=pg)
-        for i, (pg, t) in enumerate(pieces, 1)
+        Chunk(chunk_id=f"{paper_id}#{i}", paper_id=paper_id, text=t, page=pg) for i, (pg, t) in enumerate(pieces, 1)
     ]

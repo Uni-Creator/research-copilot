@@ -1,6 +1,8 @@
 """Thin LLM helpers: model factory + structured-output call that also reports token usage."""
+
 from __future__ import annotations
 
+import os
 from typing import Any, TypeVar
 
 from pydantic import BaseModel
@@ -10,7 +12,9 @@ from copilot.graph.state import Usage
 T = TypeVar("T", bound=BaseModel)
 
 
-import os
+class StructuredOutputError(RuntimeError):
+    pass
+
 
 _LIMITER = None
 
@@ -31,7 +35,7 @@ def get_llm(model: str, provider: str = "anthropic", *, temperature: float = 0.0
 
     kwargs: dict[str, Any] = {"temperature": temperature}
     if provider == "ollama":
-        kwargs.update(num_predict=max_tokens, num_ctx=8192)   # Ollama's default context would truncate prompts
+        kwargs.update(num_predict=max_tokens, num_ctx=8192)  # Ollama's default context would truncate prompts
     else:
         kwargs["max_tokens"] = max_tokens
     if (limiter := _rate_limiter()) is not None:

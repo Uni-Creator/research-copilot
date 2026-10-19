@@ -24,7 +24,7 @@ def test_resolve_citations_maps_aliases_and_strips_invented_ones():
     md, cited, stripped = resolve_citations(text, amap)
     assert "[cite:arxiv:1#abs]" in md and "[cite:arxiv:2#3]" in md
     assert "C9" not in md and "C7" not in md and "[cite:]" not in md
-    assert "Ghost" not in md and "B too" in md          # sentence resting only on an invented cite is dropped
+    assert "Ghost" not in md and "B too" in md  # sentence resting only on an invented cite is dropped
     assert cited == ["arxiv:1#abs", "arxiv:2#3"] and stripped == 2
     # round trip for revision prompts; unknown ids are dropped
     back = to_aliases("X [cite:arxiv:2#3] Y [cite:arxiv:9#1]", {"arxiv:2#3": "C5"})
@@ -32,8 +32,10 @@ def test_resolve_citations_maps_aliases_and_strips_invented_ones():
 
 
 def test_split_claims_only_cited_sentences():
-    md = ("# Title [cite:x#1]\nIntro without citation. Method A uses a transformer [cite:p1#1][cite:p2#1]. "
-          "Another claim without cite.\n- Bullet claim [cite:p3#abs].\n| table | row [cite:p1#1] |")
+    md = (
+        "# Title [cite:x#1]\nIntro without citation. Method A uses a transformer [cite:p1#1][cite:p2#1]. "
+        "Another claim without cite.\n- Bullet claim [cite:p3#abs].\n| table | row [cite:p1#1] |"
+    )
     assert split_claims(md) == [
         ("Method A uses a transformer.", ["p1#1", "p2#1"]),
         ("Bullet claim.", ["p3#abs"]),
@@ -42,10 +44,16 @@ def test_split_claims_only_cited_sentences():
 
 def test_verify_claims_batches_and_handles_missing_chunks_and_verdicts():
     texts = {"a#1": "model uses transformer", "b#1": "BLEU of 12"}
-    llm = ScriptedLLM({VerifyOutput: lambda m: VerifyOutput(verdicts=[
-        VerdictItem(index=0, verdict="supported"),
-        VerdictItem(index=1, verdict="partial", reason="number differs"),
-    ])})
+    llm = ScriptedLLM(
+        {
+            VerifyOutput: lambda m: VerifyOutput(
+                verdicts=[
+                    VerdictItem(index=0, verdict="supported"),
+                    VerdictItem(index=1, verdict="partial", reason="number differs"),
+                ]
+            )
+        }
+    )
     claims = [("uses transformer", ["a#1"]), ("BLEU is 15", ["b#1"]), ("ghost", ["zzz#1"]), ("no verdict", ["a#1"])]
     checks, usage = verify_claims(llm, claims, texts.get, batch_size=3)
     assert [c.verdict for c in checks] == ["supported", "partial", "unsupported", "unsupported"]
@@ -55,16 +63,20 @@ def test_verify_claims_batches_and_handles_missing_chunks_and_verdicts():
     assert support_rate(checks) == round((1 + 0.5 + 0 + 0) / 4, 4)
     llm2 = ScriptedLLM({VerifyOutput: VerifyOutput(verdicts=[VerdictItem(index=0, verdict="supported")])})
     verify_claims(llm2, claims, texts.get, batch_size=1)
-    assert llm2.calls == ["VerifyOutput"] * 3                      # batch_size=1 -> one call per judged claim
+    assert llm2.calls == ["VerifyOutput"] * 3  # batch_size=1 -> one call per judged claim
 
 
 def test_reader_full_text_and_pdf_failure_fallback():
     store = VectorStore(HashingEmbedder())
-    llm = ScriptedLLM({NotesOut: NotesOut(method="diffusion over pose tokens", datasets=["PHOENIX14T"], metrics=["BLEU"])})
+    llm = ScriptedLLM(
+        {NotesOut: NotesOut(method="diffusion over pose tokens", datasets=["PHOENIX14T"], metrics=["BLEU"])}
+    )
     paper = mk("Gloss to Pose Diffusion", arxiv="2208.1", abstract="We generate sign poses with diffusion.")
     paper.pdf_url = "https://arxiv.org/pdf/2208.1"
-    pages = [(1, "Method: a discrete diffusion model over pose tokens produces sign sequences from gloss input. " * 3),
-             (2, "Experiments on PHOENIX14T report back translation BLEU scores against baselines in detail. " * 3)]
+    pages = [
+        (1, "Method: a discrete diffusion model over pose tokens produces sign sequences from gloss input. " * 3),
+        (2, "Experiments on PHOENIX14T report back translation BLEU scores against baselines in detail. " * 3),
+    ]
 
     ok = make_reader_node(llm, store, lambda p: pages, S)({"paper": paper, "question": "q"})
     n = ok["notes"]["arxiv:2208.1"]
@@ -81,7 +93,7 @@ def test_reader_full_text_and_pdf_failure_fallback():
     bad = make_reader_node(llm, store2, boom, S)({"paper": paper, "question": "q"})
     assert "abstract only" in bad["trace"][-1].message and "pdf down" in bad["errors"][0]
     assert [e.kind for e in bad["trace"]] == ["read", "warn", "notes"]
-    assert len(store2) == 1                                   # only the abstract chunk exists
+    assert len(store2) == 1  # only the abstract chunk exists
 
 
 def _critic_state(draft_md, version=1, iteration=0):

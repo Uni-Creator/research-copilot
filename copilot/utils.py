@@ -1,4 +1,5 @@
 """Small text helpers shared by tools and agents."""
+
 from __future__ import annotations
 
 import hashlib

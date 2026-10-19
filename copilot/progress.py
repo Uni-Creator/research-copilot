@@ -5,6 +5,7 @@ node can return it in ``state["trace"]`` (saved in run.json) and (b) pushes it *
 custom stream, so consumers see steps as they happen, even inside parallel Reader branches.
 Outside a graph run (unit tests calling a node directly) step (b) is silently skipped.
 """
+
 from __future__ import annotations
 
 import textwrap
@@ -43,14 +44,27 @@ def short(text: str, n: int = 80) -> str:
 # Formatting
 _VERDICT_TXT = {"supported": "[ok]  ", "partial": "[~]   ", "unsupported": "[FAIL]"}
 _VERDICT_MD = {"supported": "✅", "partial": "🟡", "unsupported": "❌"}
-_KIND_MD = {"thinking": "💭", "plan": "🧭", "search": "🔎", "papers": "📄", "read": "📖", "notes": "🧾",
-            "evidence": "🧩", "draft": "✍️", "decision": "⚖️", "warn": "⚠️", "info": "•"}
+_KIND_MD = {
+    "thinking": "💭",
+    "plan": "🧭",
+    "search": "🔎",
+    "papers": "📄",
+    "read": "📖",
+    "notes": "🧾",
+    "evidence": "🧩",
+    "draft": "✍️",
+    "decision": "⚖️",
+    "warn": "⚠️",
+    "info": "•",
+}
 
 
 def _paper_line(p: dict) -> str:
     srcs = ", ".join(p.get("sources", [])) or "?"
-    return (f"{p['rank']:>2}. score {p['score']:.2f} · {p.get('year') or 'n.d.'} · "
-            f"{p['citations']} cites · {short(p['title'], 90)}  [{srcs}; {p['n_queries']} queries]")
+    return (
+        f"{p['rank']:>2}. score {p['score']:.2f} · {p.get('year') or 'n.d.'} · "
+        f"{p['citations']} cites · {short(p['title'], 90)}  [{srcs}; {p['n_queries']} queries]"
+    )
 
 
 def _details(ev: TraceEvent) -> list[str]:

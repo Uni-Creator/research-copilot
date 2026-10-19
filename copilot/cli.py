@@ -1,4 +1,5 @@
 """CLI: python -m copilot.cli "your research question" [--out runs/slp] [--until critic]"""
+
 from __future__ import annotations
 
 import argparse

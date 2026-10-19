@@ -1,4 +1,5 @@
 """Embedders. ``bge`` for real runs (small enough for a 6 GB GPU or CPU); ``hash`` for tests/dev."""
+
 from __future__ import annotations
 
 import zlib

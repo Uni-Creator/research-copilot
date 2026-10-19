@@ -8,6 +8,7 @@ Ranking pipeline
 
 Cheap and deterministic. Week 2+ can swap the overlap term for embedding similarity.
 """
+
 from __future__ import annotations
 
 import math
@@ -20,15 +21,15 @@ from copilot.utils import tokenize
 
 @dataclass(frozen=True)
 class RankWeights:
-    rrf: float = 0.5         # reciprocal-rank fusion across (query, source) result lists
-    citations: float = 0.2   # log-scaled citation count
-    recency: float = 0.1     # linear decay over 10 years
-    overlap: float = 0.2     # share of question keywords present in title+abstract
+    rrf: float = 0.5  # reciprocal-rank fusion across (query, source) result lists
+    citations: float = 0.2  # log-scaled citation count
+    recency: float = 0.1  # linear decay over 10 years
+    overlap: float = 0.2  # share of question keywords present in title+abstract
 
 
 @dataclass(frozen=True)
 class MMRWeights:
-    relevance: float = 0.7   # λ in MMR = λ·rel - (1-λ)·max_sim
+    relevance: float = 0.7  # λ in MMR = λ·rel - (1-λ)·max_sim
     similarity: float = 0.3  # 1-λ: penalty for similarity to already-selected papers
 
 
@@ -138,10 +139,7 @@ def rank_papers(
             if not selected:
                 max_sim = 0.0
             else:
-                max_sim = max(
-                    _jaccard(candidate_tokens[i], candidate_tokens[j])
-                    for j in selected
-                )
+                max_sim = max(_jaccard(candidate_tokens[i], candidate_tokens[j]) for j in selected)
             mmr_score = mmr.relevance * relevance[i] - mmr.similarity * max_sim
             if mmr_score > best_mmr:
                 best_mmr = mmr_score

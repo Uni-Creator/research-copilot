@@ -10,6 +10,7 @@ Design rules
 * State keys must never share a name with a graph node (LangGraph restriction), so
   nodes are named ``planner``, ``retriever``, ``reader``, ``writer``, ``critic_agent``.
 """
+
 from __future__ import annotations
 
 import operator
@@ -24,9 +25,7 @@ from copilot.utils import normalize_title, short_hash
 # --------------------------------------------------------------------------- #
 # Papers
 # --------------------------------------------------------------------------- #
-def compute_paper_id(
-    arxiv_id: str | None, doi: str | None, s2_id: str | None, title: str
-) -> str:
+def compute_paper_id(arxiv_id: str | None, doi: str | None, s2_id: str | None, title: str) -> str:
     """Canonical id: arXiv > DOI > Semantic Scholar > hash of the normalised title."""
     if arxiv_id:
         return f"arxiv:{arxiv_id}"
@@ -54,9 +53,9 @@ class Paper(BaseModel):
     doi: str | None = None
     s2_id: str | None = None
     citation_count: int = 0
-    sources: list[str] = []      # which APIs returned it: "arxiv", "semantic_scholar"
-    found_by: list[str] = []     # which search queries surfaced it
-    score: float = 0.0           # retrieval rank score in [0, 1]
+    sources: list[str] = []  # which APIs returned it: "arxiv", "semantic_scholar"
+    found_by: list[str] = []  # which search queries surfaced it
+    score: float = 0.0  # retrieval rank score in [0, 1]
 
     @model_validator(mode="after")
     def _fill_id(self) -> "Paper":
@@ -67,6 +66,7 @@ class Paper(BaseModel):
     def keys(self) -> list[str]:
         """Identity keys used to detect duplicates across sources."""
         import re
+
         ks: list[str] = []
         if self.arxiv_id:
             norm_arxiv = re.sub(r"v\d+$", "", self.arxiv_id.strip()).lower()
@@ -140,7 +140,7 @@ class PaperNotes(BaseModel):
     metrics: list[str] = []
     key_results: str = ""
     limitations: str = ""
-    chunk_ids: list[str] = []    # evidence chunks stored in the vector DB
+    chunk_ids: list[str] = []  # evidence chunks stored in the vector DB
 
 
 class Chunk(BaseModel):
@@ -154,10 +154,10 @@ class Chunk(BaseModel):
 
 
 class Draft(BaseModel):
-    markdown: str                       # citations appear as [cite:<chunk_id>]
+    markdown: str  # citations appear as [cite:<chunk_id>]
     cited_chunk_ids: list[str] = []
     version: int = 1
-    stripped_citations: int = 0         # citations the Writer invented and we removed
+    stripped_citations: int = 0  # citations the Writer invented and we removed
 
 
 class ClaimCheck(BaseModel):
@@ -243,9 +243,9 @@ class CopilotState(TypedDict, total=False):
     plan: ResearchPlan
 
     # retriever
-    papers: Annotated[dict[str, Paper], merge_papers]        # candidate pool
-    shortlist: list[str]                                     # paper_ids to read, ranked
-    searched_queries: Annotated[list[str], operator.add]     # avoids repeat searches
+    papers: Annotated[dict[str, Paper], merge_papers]  # candidate pool
+    shortlist: list[str]  # paper_ids to read, ranked
+    searched_queries: Annotated[list[str], operator.add]  # avoids repeat searches
 
     # reader (Week 2) -- written in parallel, one entry per paper
     notes: Annotated[dict[str, PaperNotes], merge_dicts]

@@ -1,4 +1,5 @@
 """PDF download + text extraction (PyMuPDF), with caching and a polite rate limit."""
+
 from __future__ import annotations
 
 import re
@@ -30,7 +31,7 @@ def parse_pdf_bytes(data: bytes, max_pages: int = 15) -> list[tuple[int, str]]:
                 break
             raw = page.get_text("text")
             m = _REFS.search(raw)
-            if m and i >= 2:                       # ignore a "References" mention on page 1-2
+            if m and i >= 2:  # ignore a "References" mention on page 1-2
                 head = clean_text(raw[: m.start()])
                 if head:
                     pages.append((i + 1, head))

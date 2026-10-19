@@ -1,4 +1,5 @@
 """Deduplication of paper records coming from different sources."""
+
 from __future__ import annotations
 
 from copilot.graph.state import Paper
@@ -36,6 +37,6 @@ class PaperIndex:
                 for k, target in list(self._by_key.items()):
                     if target == other_idx:
                         self._by_key[k] = idx
-        for k in self._papers[idx].keys():   # merging may reveal new identity keys
+        for k in self._papers[idx].keys():  # merging may reveal new identity keys
             self._by_key[k] = idx
         return idx

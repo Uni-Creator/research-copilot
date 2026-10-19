@@ -14,6 +14,7 @@ Auth: set COPILOT_API_KEY and send it as `x-api-key` (or ?api_key= for EventSour
 set headers). Unset = open, which is fine locally but NOT for a public deployment: every run spends
 LLM tokens. Concurrency is bounded; finished runs are evicted oldest-first.
 """
+
 from __future__ import annotations
 
 import hmac
@@ -54,7 +55,7 @@ class RunRequest(BaseModel):
 class Run:
     id: str
     request: RunRequest
-    status: str = "queued"                       # queued | running | done | error
+    status: str = "queued"  # queued | running | done | error
     events: list[dict] = field(default_factory=list)
     state: dict | None = None
     error: str | None = None
@@ -101,7 +102,7 @@ class RunManager:
             run = Run(id=uuid.uuid4().hex[:12], request=req)
             self.runs[run.id] = run
             for old in [r for r in self.runs.values() if r.finished][: max(0, len(self.runs) - self.max_runs)]:
-                del self.runs[old.id]                      # oldest finished first (dict keeps insertion order)
+                del self.runs[old.id]  # oldest finished first (dict keeps insertion order)
         self._pool.submit(self._work, run)
         return run
 
@@ -120,7 +121,8 @@ class RunManager:
             # progress events are pushed live (also from parallel Readers), not batched per graph step
             states = deque(
                 copilot.stream(
-                    req.question, filters,
+                    req.question,
+                    filters,
                     on_event=lambda ev: run.emit({"type": "trace", **ev.model_dump(mode="json")}),
                 ),
                 maxlen=1,
@@ -130,9 +132,9 @@ class RunManager:
                 try:
                     save_run(self.out_dir / run.id, final)
                 except OSError:
-                    pass                                     # persistence is best-effort
+                    pass  # persistence is best-effort
             run.finish("done", final)
-        except Exception as exc:                             # surface any failure to the client
+        except Exception as exc:  # surface any failure to the client
             run.finish("error", final, f"{type(exc).__name__}: {exc}")
 
 
@@ -147,9 +149,15 @@ def summarize(run: Run) -> dict[str, Any]:
         "question": run.request.question,
         "events": len(run.events),
         "shortlist": [
-            {"id": pid, "title": papers[pid].title, "year": papers[pid].year,
-             "score": papers[pid].score, "url": papers[pid].url}
-            for pid in st.get("shortlist", []) if pid in papers
+            {
+                "id": pid,
+                "title": papers[pid].title,
+                "year": papers[pid].year,
+                "score": papers[pid].score,
+                "url": papers[pid].url,
+            }
+            for pid in st.get("shortlist", [])
+            if pid in papers
         ],
         "draft_version": draft.version if draft else None,
         "support_rate": crit.support_rate if crit else None,
@@ -174,7 +182,9 @@ def create_app(
     key = os.environ.get("COPILOT_API_KEY") or None if api_key is _UNSET else api_key
     manager = RunManager(
         factory or CopilotFactory(settings),
-        max_concurrent=max_concurrent, max_runs=max_runs, max_queue=max_queue,
+        max_concurrent=max_concurrent,
+        max_runs=max_runs,
+        max_queue=max_queue,
         out_dir=out_dir if out_dir is not None else Path(settings.traces_dir) / "runs",
     )
 
@@ -211,8 +221,15 @@ def create_app(
     @app.post("/runs", status_code=202, dependencies=[Depends(auth)])
     def start_run(req: RunRequest) -> dict[str, Any]:
         run = manager.submit(req)
-        return {"id": run.id, "status": run.status, "links": {
-            "self": f"/runs/{run.id}", "events": f"/runs/{run.id}/events", "report": f"/runs/{run.id}/report.md"}}
+        return {
+            "id": run.id,
+            "status": run.status,
+            "links": {
+                "self": f"/runs/{run.id}",
+                "events": f"/runs/{run.id}/events",
+                "report": f"/runs/{run.id}/report.md",
+            },
+        }
 
     @app.get("/runs/{run_id}", dependencies=[Depends(auth)])
     def get_run(run_id: str) -> dict[str, Any]:
@@ -241,8 +258,9 @@ def create_app(
                         return
                     yield ": keepalive\n\n"
 
-        return StreamingResponse(gen(), media_type="text/event-stream",
-                                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+        return StreamingResponse(
+            gen(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
+        )
 
     @app.get("/runs/{run_id}/report.md", dependencies=[Depends(auth)], response_class=PlainTextResponse)
     def report_md(run_id: str) -> str:

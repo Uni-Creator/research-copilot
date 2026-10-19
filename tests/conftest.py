@@ -25,8 +25,14 @@ class FakeLLM:
 
 def mk(title, year=2023, cites=0, arxiv=None, doi=None, s2=None, abstract="", source="arxiv"):
     return Paper(
-        title=title, year=year, citation_count=cites, arxiv_id=arxiv, doi=doi,
-        s2_id=s2, abstract=abstract, sources=[source],
+        title=title,
+        year=year,
+        citation_count=cites,
+        arxiv_id=arxiv,
+        doi=doi,
+        s2_id=s2,
+        abstract=abstract,
+        sources=[source],
     )
 
 

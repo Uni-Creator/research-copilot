@@ -6,6 +6,7 @@
 * Decision: missing topics -> retrieve_more; low support -> revise_draft; else pass.
   Loops are capped by ``settings.max_iterations`` and a token budget.
 """
+
 from __future__ import annotations
 
 import re
@@ -81,8 +82,7 @@ def verify_claims(
     todo: list[int] = []
     for i, (claim, ids) in enumerate(claims):
         if not any(chunk_text(cid) for cid in ids):
-            checks[i] = ClaimCheck(claim=claim, chunk_ids=ids, verdict="unsupported",
-                                   reason="cited chunk not found")
+            checks[i] = ClaimCheck(claim=claim, chunk_ids=ids, verdict="unsupported", reason="cited chunk not found")
         else:
             todo.append(i)
 
@@ -95,8 +95,9 @@ def verify_claims(
             blocks.append(f"Claim {n}: {claim}\nCited evidence:\n{ev}")
         err = "no verdict returned"
         try:
-            out, u = structured_call(llm, VerifyOutput,
-                                     [("system", _prompt("critic_verify.md")), ("human", "\n\n".join(blocks))])
+            out, u = structured_call(
+                llm, VerifyOutput, [("system", _prompt("critic_verify.md")), ("human", "\n\n".join(blocks))]
+            )
             usage = usage + u
             by_idx = {v.index: v for v in out.verdicts}
         except Exception as exc:
@@ -106,8 +107,7 @@ def verify_claims(
             v = by_idx.get(n)
             claim, ids = claims[i]
             if v is None:
-                checks[i] = ClaimCheck(claim=claim, chunk_ids=ids, verdict="unsupported",
-                                       reason=err)
+                checks[i] = ClaimCheck(claim=claim, chunk_ids=ids, verdict="unsupported", reason=err)
             else:
                 checks[i] = ClaimCheck(claim=claim, chunk_ids=ids, verdict=v.verdict, reason=v.reason)
     return [c for c in checks if c is not None], usage
@@ -124,45 +124,61 @@ def make_critic_node(llm: Any, store, settings: Settings) -> Callable[[CopilotSt
 
         claims = split_claims(draft.markdown)
         n_calls = -(-len(claims) // settings.verify_batch_size) if claims else 0
-        trace(f"fact-checking {len(claims)} cited claims against the passages they cite "
-              f"({n_calls} judge call{'s' if n_calls != 1 else ''})", "check")
+        trace(
+            f"fact-checking {len(claims)} cited claims against the passages they cite "
+            f"({n_calls} judge call{'s' if n_calls != 1 else ''})",
+            "check",
+        )
+
         def get_chunk(cid: str) -> str | None:
             if (c := store.get(cid)) is not None:
                 return c.text
             from copilot.tools.chunking import paper_id_of
+
             pid = paper_id_of(cid)
             p = state.get("papers", {}).get(pid)
             if p and p.abstract:
                 return p.abstract
             return None
 
-        checks, usage = verify_claims(
-            llm, claims, get_chunk, settings.verify_batch_size
-        )
+        checks, usage = verify_claims(llm, claims, get_chunk, settings.verify_batch_size)
         for c in checks:
             trace(c.claim, "check", verdict=c.verdict, claim=c.claim, reason=c.reason, chunks=c.chunk_ids)
         rate = support_rate(checks)
         if rate is not None:
-            trace(f"support rate {rate:.0%} (threshold {settings.support_threshold:.0%}); "
-                  f"{sum(c.verdict != 'supported' for c in checks)} of {len(checks)} claims flagged", "check")
+            trace(
+                f"support rate {rate:.0%} (threshold {settings.support_threshold:.0%}); "
+                f"{sum(c.verdict != 'supported' for c in checks)} of {len(checks)} claims flagged",
+                "check",
+            )
 
         missing: list[str] = []
         if can_loop and claims:
             plan = state.get("plan")
             trace("reviewing coverage: does the draft answer every part of the question?", "check")
             try:
-                cov, u = structured_call(llm, CoverageOutput, [
-                    ("system", _prompt("critic_coverage.md")),
-                    ("human", f"Question: {state['question']}\nSub-questions:\n"
-                              + "\n".join(f"- {sq.question}" for sq in (plan.sub_questions if plan else []))
-                              + f"\n\nDraft:\n{_CITE.sub('', draft.markdown)}"),
-                ])
+                cov, u = structured_call(
+                    llm,
+                    CoverageOutput,
+                    [
+                        ("system", _prompt("critic_coverage.md")),
+                        (
+                            "human",
+                            f"Question: {state['question']}\nSub-questions:\n"
+                            + "\n".join(f"- {sq.question}" for sq in (plan.sub_questions if plan else []))
+                            + f"\n\nDraft:\n{_CITE.sub('', draft.markdown)}",
+                        ),
+                    ],
+                )
                 usage = usage + u
                 missing = [t.strip() for t in cov.missing_topics if t.strip()][:4]
             except Exception as exc:
                 trace(f"coverage review failed ({exc!r}); skipping it", "warn")
-            trace("coverage gaps: " + "; ".join(missing) if missing else "no coverage gaps found", "check",
-                  missing=missing)
+            trace(
+                "coverage gaps: " + "; ".join(missing) if missing else "no coverage gaps found",
+                "check",
+                missing=missing,
+            )
 
         low_support = rate is not None and rate < settings.support_threshold
         action: Literal["pass", "revise_draft", "retrieve_more"]
@@ -175,7 +191,7 @@ def make_critic_node(llm: Any, store, settings: Settings) -> Callable[[CopilotSt
             limit = "token budget" if over_budget else "iteration limit"
             if not claims:
                 why = "no cited claims to verify"
-            elif low_support:                      # can only happen when looping is no longer allowed
+            elif low_support:  # can only happen when looping is no longer allowed
                 why = f"{limit} reached; finishing with the quality bar NOT met"
             elif not can_loop:
                 why = f"claims check out; {limit} reached, so coverage was not re-checked"
@@ -183,7 +199,10 @@ def make_critic_node(llm: Any, store, settings: Settings) -> Callable[[CopilotSt
                 why = "quality bar met"
         report = CriticReport(
             passed=(rate is not None and not low_support and not missing),
-            action=action, checks=checks, missing_topics=missing, support_rate=rate,
+            action=action,
+            checks=checks,
+            missing_topics=missing,
+            support_rate=rate,
         )
         trace(f"decision: {action} \u2014 {why}", "decision", action=action, reason=why, support_rate=rate)
         return {

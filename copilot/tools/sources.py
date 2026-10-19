@@ -1,4 +1,5 @@
 """Wire concrete search backends (arXiv and OpenAlex) behind one interface."""
+
 from __future__ import annotations
 
 import logging
@@ -39,8 +40,12 @@ def build_sources(settings: Settings) -> dict[str, SearchFn]:
 
     def arxiv_fn(query: str, filters: SearchFilters, limit: int) -> list[Paper]:
         return search_arxiv(
-            query, filters, limit,
-            client=client, cache=cache, limiter=arxiv_limiter,
+            query,
+            filters,
+            limit,
+            client=client,
+            cache=cache,
+            limiter=arxiv_limiter,
         )
 
     def openalex_fn(query: str, filters: SearchFilters, limit: int) -> list[Paper]:

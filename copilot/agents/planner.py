@@ -1,4 +1,5 @@
 """Planner agent: research question -> sub-questions + search queries."""
+
 from __future__ import annotations
 
 from functools import lru_cache
@@ -28,7 +29,7 @@ class PlannedSubQuestion(BaseModel):
 
 
 class PlannerOutput(BaseModel):
-    reasoning: str = ""          # listed first so the model "thinks" before it plans; shown to the user
+    reasoning: str = ""  # listed first so the model "thinks" before it plans; shown to the user
     sub_questions: list[PlannedSubQuestion] = []
     scope_notes: str = ""
     year_from: int | None = None
@@ -94,7 +95,7 @@ def to_plan(out: PlannerOutput, question: str, prior: ResearchPlan | None = None
     return ResearchPlan(sub_questions=existing + added, scope_notes=notes)
 
 
-# node 
+# node
 def make_planner_node(llm: Any) -> Callable[[CopilotState], dict]:
     def planner_node(state: CopilotState) -> dict:
         trace = Tracer("planner")
@@ -136,8 +137,12 @@ def make_planner_node(llm: Any) -> Callable[[CopilotState], dict]:
         for sq in plan.sub_questions[n_before:]:
             trace(f"{sq.id} \u00b7 {sq.question}", "plan", queries=sq.queries)
         n_sq, n_q = len(plan.sub_questions), len(plan.all_queries())
-        trace(f"plan ready: {n_sq} sub-question{'s' * (n_sq != 1)}, {n_q} search quer{'ies' if n_q != 1 else 'y'}", "info",
-              sub_questions=[sq.question for sq in plan.sub_questions], queries=plan.all_queries())
+        trace(
+            f"plan ready: {n_sq} sub-question{'s' * (n_sq != 1)}, {n_q} search quer{'ies' if n_q != 1 else 'y'}",
+            "info",
+            sub_questions=[sq.question for sq in plan.sub_questions],
+            queries=plan.all_queries(),
+        )
 
         update.update(plan=plan, usage=usage, errors=errors, trace=trace.events)
         return update

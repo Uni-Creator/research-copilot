@@ -1,5 +1,5 @@
-
 """HTTP plumbing: shared rate limiting, retry with backoff, and disk caching."""
+
 from __future__ import annotations
 
 import email.utils
@@ -62,9 +62,7 @@ class DiskCache:
         self.enabled = enabled
 
     def _path(self, namespace: str, key: dict[str, Any]) -> Path:
-        encoded = json.dumps(
-            key, sort_keys=True, separators=(",", ":"), default=str
-        )
+        encoded = json.dumps(key, sort_keys=True, separators=(",", ":"), default=str)
         digest = hashlib.sha256(encoded.encode()).hexdigest()[:32]
         return self.root / namespace / f"{digest}.json"
 
@@ -89,9 +87,7 @@ class DiskCache:
 
         # A per-thread temporary file avoids concurrent writers sharing
         # the same temporary path. replace() publishes a complete JSON file.
-        temp = path.with_name(
-            f".{path.name}.{threading.get_ident()}.tmp"
-        )
+        temp = path.with_name(f".{path.name}.{threading.get_ident()}.tmp")
         try:
             temp.write_text(
                 json.dumps(value, ensure_ascii=False),

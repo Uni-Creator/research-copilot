@@ -3,6 +3,7 @@
 Runs once per shortlisted paper, in parallel (LangGraph ``Send`` fan-out). If the PDF cannot be
 fetched or parsed it degrades to the abstract, so one bad PDF never breaks the run.
 """
+
 from __future__ import annotations
 
 from functools import lru_cache
@@ -68,9 +69,12 @@ def make_reader_node(
         label = short(paper.title, 70)
         errors: list[str] = []
         wants_pdf = fetch_pages is not None and bool(paper.pdf_url)
-        trace(f"reading \u201c{label}\u201d ({paper.year or 'n.d.'}) \u2014 "
-              f"{'downloading and parsing PDF' if wants_pdf else 'abstract only'}",
-              "read", paper_id=paper.paper_id)
+        trace(
+            f"reading \u201c{label}\u201d ({paper.year or 'n.d.'}) \u2014 "
+            f"{'downloading and parsing PDF' if wants_pdf else 'abstract only'}",
+            "read",
+            paper_id=paper.paper_id,
+        )
 
         pages: list[tuple[int, str]] = []
         if wants_pdf:
@@ -84,19 +88,25 @@ def make_reader_node(
         chunks: list[Chunk] = []
         if paper.abstract:
             chunks.append(
-                Chunk(chunk_id=abstract_chunk_id(paper.paper_id), paper_id=paper.paper_id,
-                      text=paper.abstract, kind="abstract")
+                Chunk(
+                    chunk_id=abstract_chunk_id(paper.paper_id),
+                    paper_id=paper.paper_id,
+                    text=paper.abstract,
+                    kind="abstract",
+                )
             )
         chunks += chunk_pages(
-            paper.paper_id, pages, size=settings.chunk_chars,
-            overlap=settings.chunk_overlap, max_chunks=settings.max_chunks_per_paper,
+            paper.paper_id,
+            pages,
+            size=settings.chunk_chars,
+            overlap=settings.chunk_overlap,
+            max_chunks=settings.max_chunks_per_paper,
         )
         store.add(chunks)
 
         context = select_context(store, paper)
         prompt = f"Title: {paper.title}\nYear: {paper.year or 'n.d.'}\n\n" + "\n\n".join(
-            f"[excerpt {i}{' - abstract' if c.kind == 'abstract' else ''}]\n{c.text}"
-            for i, c in enumerate(context, 1)
+            f"[excerpt {i}{' - abstract' if c.kind == 'abstract' else ''}]\n{c.text}" for i, c in enumerate(context, 1)
         )
         try:
             out, usage = structured_call(llm, NotesOut, [("system", _system_prompt()), ("human", prompt)])
@@ -108,9 +118,17 @@ def make_reader_node(
 
         notes = PaperNotes(paper_id=paper.paper_id, chunk_ids=[c.chunk_id for c in context], **out.model_dump())
         source = f"full text, {len(pages)} pages" if pages else "abstract only"
-        trace(f"notes ready: \u201c{label}\u201d \u00b7 {len(chunks)} chunks stored ({source})", "notes",
-              paper_id=paper.paper_id, full_text=bool(pages), n_chunks=len(chunks), method=notes.method,
-              datasets=notes.datasets, metrics=notes.metrics, limitations=notes.limitations)
+        trace(
+            f"notes ready: \u201c{label}\u201d \u00b7 {len(chunks)} chunks stored ({source})",
+            "notes",
+            paper_id=paper.paper_id,
+            full_text=bool(pages),
+            n_chunks=len(chunks),
+            method=notes.method,
+            datasets=notes.datasets,
+            metrics=notes.metrics,
+            limitations=notes.limitations,
+        )
         return {"notes": {paper.paper_id: notes}, "usage": usage, "errors": errors, "trace": trace.events}
 
     return reader_node

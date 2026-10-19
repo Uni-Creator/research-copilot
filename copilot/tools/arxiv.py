@@ -1,4 +1,5 @@
 """arXiv search (Atom API): query building, fetching, parsing."""
+
 from __future__ import annotations
 
 import re

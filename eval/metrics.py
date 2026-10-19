@@ -21,6 +21,7 @@ support_rate : judge-verified share of cited claims backed by the cited text
                (supported=1, partial=0.5, unsupported=0)
 stripped_citations : fabricated citations the Writer produced and the pipeline removed
 """
+
 from __future__ import annotations
 
 import math
@@ -52,11 +53,7 @@ def coverage(must_cite: list[dict], papers: list[Paper]) -> tuple[float | None, 
     """Recall of must-cite items over *papers*.  Returns (score, list_of_missed_titles)."""
     if not must_cite:
         return None, []
-    missed = [
-        m.get("title") or m.get("arxiv_id", "?")
-        for m in must_cite
-        if not any(match_paper(m, p) for p in papers)
-    ]
+    missed = [m.get("title") or m.get("arxiv_id", "?") for m in must_cite if not any(match_paper(m, p) for p in papers)]
     return round(1 - len(missed) / len(must_cite), 4), missed
 
 
@@ -184,13 +181,13 @@ def evaluate_run(
     cited: list[Paper] = [papers[i] for i in cited_ids if i in papers]
     must = topic.get("must_cite", [])
 
-    #stage-level coverage 
+    # stage-level coverage
     all_papers: list[Paper] = list(papers.values())
     cov_pool, _missed_pool = coverage(must, all_papers)
     cov_short, missed_short = coverage(must, shortlist)
     cov_cited, _ = coverage(must, cited)
 
-    # ranked-retrieval metrics 
+    # ranked-retrieval metrics
     # Sort the pool by score descending for ranking metrics.
     ranked_pool = sorted(all_papers, key=lambda p: (-p.score, -p.citation_count, p.title))
 
@@ -202,13 +199,11 @@ def evaluate_run(
     ranked_metrics["mrr"] = mrr(must, ranked_pool)
     ranked_metrics["average_precision"] = average_precision(must, ranked_pool)
 
-    # sub-question / topic coverage 
+    # sub-question / topic coverage
     sq_cov = subquestion_coverage(plan, shortlist)
-    mean_sq_cov = (
-        round(sum(sq_cov.values()) / len(sq_cov), 4) if sq_cov else None
-    )
+    mean_sq_cov = round(sum(sq_cov.values()) / len(sq_cov), 4) if sq_cov else None
 
-    # claim verification 
+    # claim verification
     def safe_chunk_text(cid: str) -> str | None:
         t = chunk_text(cid)
         if t:

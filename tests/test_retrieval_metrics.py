@@ -1,12 +1,12 @@
 """Tests for eval/metrics.py: coverage, ranked-retrieval metrics, MMR ranking, and arxiv query."""
+
 import math
 
 import pytest
 
-from copilot.graph.state import Paper, ResearchPlan, SubQuestion
+from copilot.graph.state import ResearchPlan, SearchFilters, SubQuestion
 from copilot.tools.arxiv import build_arxiv_query
-from copilot.graph.state import SearchFilters
-from copilot.tools.ranking import MMRWeights, RankWeights, rank_papers
+from copilot.tools.ranking import MMRWeights, rank_papers
 from eval.metrics import (
     average_precision,
     coverage,
@@ -47,6 +47,7 @@ def test_match_paper_empty_must_cite():
 
 # coverage
 
+
 def test_coverage_empty_must_cite():
     assert coverage([], [mk("X")]) == (None, [])
 
@@ -74,12 +75,11 @@ def test_coverage_none_found():
 
 # Ranked-retrieval metrics  (precision@k, recall@k, nDCG@k, MRR, AP)
 
+
 @pytest.fixture
 def ranked_pool():
     """8-paper ranked list; papers at ranks 2 and 5 are must-cites."""
-    papers = [
-        mk(f"Paper {i}", arxiv=f"0000.{i}") for i in range(1, 9)
-    ]
+    papers = [mk(f"Paper {i}", arxiv=f"0000.{i}") for i in range(1, 9)]
     return papers
 
 
@@ -171,15 +171,18 @@ def test_average_precision_empty_must():
 
 # Sub-question coverage
 
+
 def test_subquestion_coverage_empty_plan():
     assert subquestion_coverage(None, []) == {}
 
 
 def test_subquestion_coverage_basic():
-    plan = ResearchPlan(sub_questions=[
-        SubQuestion(id="sq1", question="VQ-VAE pose tokenization codebook", queries=["pose vqvae"]),
-        SubQuestion(id="sq2", question="diffusion models sign generation", queries=["discrete diffusion sign"]),
-    ])
+    plan = ResearchPlan(
+        sub_questions=[
+            SubQuestion(id="sq1", question="VQ-VAE pose tokenization codebook", queries=["pose vqvae"]),
+            SubQuestion(id="sq2", question="diffusion models sign generation", queries=["discrete diffusion sign"]),
+        ]
+    )
     papers = [
         mk("Pose-VQVAE for sign language", abstract="vqvae codebook pose"),
         mk("Sign language discrete diffusion", abstract="diffusion generation"),
@@ -193,9 +196,11 @@ def test_subquestion_coverage_basic():
 
 
 def test_subquestion_coverage_no_overlap():
-    plan = ResearchPlan(sub_questions=[
-        SubQuestion(id="sq1", question="quantum computing fault tolerance", queries=["quantum error correction"]),
-    ])
+    plan = ResearchPlan(
+        sub_questions=[
+            SubQuestion(id="sq1", question="quantum computing fault tolerance", queries=["quantum error correction"]),
+        ]
+    )
     papers = [mk("Sign Language Production", abstract="avatars sign pose")]
     cov = subquestion_coverage(plan, papers)
     # No overlap between quantum terms and sign language papers
@@ -203,6 +208,7 @@ def test_subquestion_coverage_no_overlap():
 
 
 # MMR re-ranking
+
 
 def test_mmr_promotes_diverse_papers():
     """Two clusters of papers; MMR should interleave instead of taking the whole first cluster."""
@@ -221,8 +227,7 @@ def test_mmr_promotes_diverse_papers():
     # Without MMR: top order would be a1, a2, a3, b1
     no_mmr = rank_papers(papers, rrf_scores, q, mmr_enabled=False)
     # With MMR enabled: b1 should be pulled up earlier
-    with_mmr = rank_papers(papers, rrf_scores, q, mmr_enabled=True,
-                           mmr=MMRWeights(relevance=0.6, similarity=0.4))
+    with_mmr = rank_papers(papers, rrf_scores, q, mmr_enabled=True, mmr=MMRWeights(relevance=0.6, similarity=0.4))
 
     b1_rank_no_mmr = next(i for i, p in enumerate(no_mmr) if p.title == b1.title)
     b1_rank_mmr = next(i for i, p in enumerate(with_mmr) if p.title == b1.title)
@@ -241,6 +246,7 @@ def test_mmr_empty():
 
 
 # arXiv query builder
+
 
 def test_build_arxiv_query_and_mode():
     q = build_arxiv_query("Signs as Tokens multilingual sign language generator", SearchFilters())

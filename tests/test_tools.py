@@ -45,13 +45,21 @@ def test_build_arxiv_query():
     assert "submittedDate:[202101010000 TO 202412312359]" in dated
 
 
-
 def test_s2_parsing():
-    p = parse_s2_item({
-        "paperId": "abc", "title": "T", "abstract": None, "year": 2022, "citationCount": 5,
-        "authors": [{"name": "A"}, {"name": None}], "externalIds": {"ArXiv": "2201.1", "DOI": "10.1/x"},
-        "openAccessPdf": None, "venue": "",
-    }, "q")
+    p = parse_s2_item(
+        {
+            "paperId": "abc",
+            "title": "T",
+            "abstract": None,
+            "year": 2022,
+            "citationCount": 5,
+            "authors": [{"name": "A"}, {"name": None}],
+            "externalIds": {"ArXiv": "2201.1", "DOI": "10.1/x"},
+            "openAccessPdf": None,
+            "venue": "",
+        },
+        "q",
+    )
     assert p.paper_id == "arxiv:2201.1" and p.abstract == "" and p.authors == ["A"]
     assert p.pdf_url == "https://arxiv.org/pdf/2201.1" and p.venue is None
     assert parse_s2_item({"title": "  "}) is None

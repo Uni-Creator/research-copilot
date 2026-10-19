@@ -1,4 +1,3 @@
-
 """Run benchmark ablations with persistent logs and incremental results.
 
 Examples:
@@ -9,6 +8,7 @@ Examples:
         --topics eval/datasets/slp.json --variants baseline \
         --limit 1 --no-fulltext --out eval/results-debug
 """
+
 from __future__ import annotations
 
 import argparse
@@ -90,9 +90,7 @@ def configure_logging(out: Path, level: str = "INFO") -> logging.Logger:
     console.setFormatter(formatter)
     logger.addHandler(console)
 
-    file_handler = logging.FileHandler(
-        out / "run_eval.log", mode="w", encoding="utf-8"
-    )
+    file_handler = logging.FileHandler(out / "run_eval.log", mode="w", encoding="utf-8")
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
 
@@ -183,23 +181,14 @@ def log_state_diagnostics(
 
     logger.info("State fields: %s", ", ".join(sorted(data.keys())))
 
-    collection_names = (
-        "papers",
-        "retrieved_papers",
-        "paper_pool",
-        "candidates",
-        "ranked_papers",
-        "shortlist",
-        "selected_papers",
-        "chunks",
-        "citations",
-        "errors",
-        "messages",
-    )
-
     for name in (
-        "papers", "shortlist", "plan", "errors",
-        "trace", "draft", "usage",
+        "papers",
+        "shortlist",
+        "plan",
+        "errors",
+        "trace",
+        "draft",
+        "usage",
     ):
         value = data.get(name)
 
@@ -239,10 +228,7 @@ def log_state_diagnostics(
 
 
 def _mean(values: list[Any]) -> float | None:
-    vals = [
-        value for value in values
-        if isinstance(value, (int, float)) and not isinstance(value, bool)
-    ]
+    vals = [value for value in values if isinstance(value, (int, float)) and not isinstance(value, bool)]
     return round(statistics.mean(vals), 3) if vals else None
 
 
@@ -273,11 +259,7 @@ def results_table(
         error_count = _mean([r.get("errors") for r in successful])
         cells.append("-" if error_count is None else str(error_count))
 
-        lines.append(
-            f"| {variant} | "
-            + " | ".join(cells)
-            + f" | {len(successful)} | {len(rows) - len(successful)} |"
-        )
+        lines.append(f"| {variant} | " + " | ".join(cells) + f" | {len(successful)} | {len(rows) - len(successful)} |")
 
     return "\n".join(lines)
 
@@ -345,7 +327,7 @@ def evaluate(
     total = len(topics) * len(variants)
     completed = 0
 
-    for topic_index, topic in enumerate(topics, start=1):
+    for _topic_index, topic in enumerate(topics, start=1):
         filters = SearchFilters(**topic.get("filters", {}))
 
         for name, runner in variants.items():
@@ -356,7 +338,10 @@ def evaluate(
             logger.info("=" * 72)
             logger.info(
                 "Run %d/%d | topic=%s | variant=%s",
-                completed, total, topic_id, name,
+                completed,
+                total,
+                topic_id,
+                name,
             )
             logger.info("Question: %s", question)
             logger.info("Filters: %s", filters)
@@ -396,10 +381,7 @@ def evaluate(
                 if isinstance(metrics, Mapping):
                     row.update(metrics)
                 else:
-                    raise TypeError(
-                        f"evaluate_run returned {type(metrics).__name__}, "
-                        "expected a mapping"
-                    )
+                    raise TypeError(f"evaluate_run returned {type(metrics).__name__}, expected a mapping")
 
                 logger.info(
                     "Metric evaluation completed in %.1fs",
@@ -438,22 +420,21 @@ def evaluate(
                     )
 
                 if row.get("error") is not None:
-                    logger.warning(
-                        "Evaluator reported error: %r", row["error"]
-                    )
+                    logger.warning("Evaluator reported error: %r", row["error"])
 
             except KeyboardInterrupt:
                 logger.warning(
-                    "Interrupted during topic=%s variant=%s; "
-                    "previous completed runs have been saved",
-                    topic_id, name,
+                    "Interrupted during topic=%s variant=%s; previous completed runs have been saved",
+                    topic_id,
+                    name,
                 )
                 raise
 
             except Exception as exc:
                 logger.exception(
                     "Run failed | topic=%s | variant=%s",
-                    topic_id, name,
+                    topic_id,
+                    name,
                 )
                 row["error"] = repr(exc)
                 row["execution_error"] = repr(exc)
@@ -507,11 +488,7 @@ def make_variants(
                 settings.model_provider,
                 max_tokens=3000,
             )
-            variants[name] = (
-                lambda question, filters, llm=llm: run_baseline(
-                    question, filters, settings, llm, sources
-                )
-            )
+            variants[name] = lambda question, filters, llm=llm: run_baseline(question, filters, settings, llm, sources)
 
         elif name in ("multi", "multi_critic"):
             copilot = build_copilot(
@@ -520,11 +497,9 @@ def make_variants(
                 sources=sources,
                 **kwargs,
             )
-            variants[name] = (
-                lambda question, filters, cp=copilot: (
-                    cp.run(question, filters),
-                    cp.chunk_text,
-                )
+            variants[name] = lambda question, filters, cp=copilot: (
+                cp.run(question, filters),
+                cp.chunk_text,
             )
 
         else:
@@ -534,9 +509,7 @@ def make_variants(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        description="Run literature-review evaluation variants with diagnostics."
-    )
+    parser = argparse.ArgumentParser(description="Run literature-review evaluation variants with diagnostics.")
     parser.add_argument("--topics", default="eval/datasets/slp.json")
     parser.add_argument("--variants", default="baseline,multi,multi_critic")
     parser.add_argument("--out", default="eval/results")
@@ -578,7 +551,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.limit is not None:
             if args.limit < 1:
                 raise ValueError("--limit must be greater than zero.")
-            topics = topics[:args.limit]
+            topics = topics[: args.limit]
 
         names = [name.strip() for name in args.variants.split(",") if name.strip()]
         if not names:

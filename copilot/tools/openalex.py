@@ -1,4 +1,5 @@
 """OpenAlex Works API search adapter."""
+
 from __future__ import annotations
 
 import re
@@ -96,6 +97,7 @@ def clean_search_query(query: str) -> str:
         flags=re.IGNORECASE,
     ).strip(" ?.")
     from copilot.utils import tokenize
+
     words = tokenize(cleaned)
     if len(words) > 8:
         return " ".join(words[:8])

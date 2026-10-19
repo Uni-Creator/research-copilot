@@ -3,6 +3,7 @@
 Citations are stored as [cite:<chunk_id>]; here they become [1], [2] ... numbered by paper in
 order of first appearance, and the same numbers key the reference list and the table.
 """
+
 from __future__ import annotations
 
 import html
@@ -59,14 +60,19 @@ def render_markdown(state: CopilotState) -> str:
 
     rows = [pid for pid in order if pid in notes]
     if rows:
-        out += ["## Comparison of cited papers", "",
-                "| # | Paper | Method | Datasets | Metrics | Limitations |",
-                "|---|---|---|---|---|---|"]
+        out += [
+            "## Comparison of cited papers",
+            "",
+            "| # | Paper | Method | Datasets | Metrics | Limitations |",
+            "|---|---|---|---|---|---|",
+        ]
         for pid in rows:
             n, p = notes[pid], papers.get(pid)
             label = f"{_authors(p).split(',')[0]} ({p.year or 'n.d.'})" if p else pid
-            out.append(f"| {order.index(pid) + 1} | {_cell(label, 60)} | {_cell(n.method)} | "
-                       f"{_cell(n.datasets)} | {_cell(n.metrics)} | {_cell(n.limitations)} |")
+            out.append(
+                f"| {order.index(pid) + 1} | {_cell(label, 60)} | {_cell(n.method)} | "
+                f"{_cell(n.datasets)} | {_cell(n.metrics)} | {_cell(n.limitations)} |"
+            )
         out.append("")
 
     out += ["## References", ""]
@@ -81,8 +87,12 @@ def render_markdown(state: CopilotState) -> str:
 
     crit = state.get("critique")
     if crit and crit.support_rate is not None:
-        out += ["", "---", f"_Automated check: {len(crit.checks)} cited claims verified against source text, "
-                f"support rate {crit.support_rate:.0%}; draft v{draft.version if draft else 1}._"]
+        out += [
+            "",
+            "---",
+            f"_Automated check: {len(crit.checks)} cited claims verified against source text, "
+            f"support rate {crit.support_rate:.0%}; draft v{draft.version if draft else 1}._",
+        ]
     return "\n".join(out) + "\n"
 
 

@@ -3,6 +3,7 @@
 At review scale (a few thousand chunks) brute force is instant and dependency-free.
 Swap for Chroma/FAISS later behind the same four methods: add / search / get / has_paper.
 """
+
 from __future__ import annotations
 
 import json
@@ -45,9 +46,7 @@ class VectorStore:
     def has_paper(self, paper_id: str) -> bool:
         return any(c.paper_id == paper_id for c in self._chunks.values())
 
-    def search(
-        self, query: str, k: int = 5, paper_ids: set[str] | None = None
-    ) -> list[tuple[Chunk, float]]:
+    def search(self, query: str, k: int = 5, paper_ids: set[str] | None = None) -> list[tuple[Chunk, float]]:
         with self._lock:
             if self._mat is None or not self._ids:
                 return []

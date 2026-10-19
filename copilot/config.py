@@ -1,4 +1,5 @@
 """Runtime settings, read from environment variables (.env supported)."""
+
 from __future__ import annotations
 
 import os
@@ -27,12 +28,12 @@ class Settings:
     # retrieval
     openalex_api_key: str | None = None
     openalex_mailto: str | None = None
-    max_papers: int = 20            # shortlist size on the first pass
-    extra_per_pass: int = 5         # papers added per "retrieve more" loop
+    max_papers: int = 20  # shortlist size on the first pass
+    extra_per_pass: int = 5  # papers added per "retrieve more" loop
     max_results_per_query: int = 15
     retriever_workers: int = 4
     # reading
-    embedder: str = "bge"           # "bge" (sentence-transformers) | "hash" (offline, tests/dev)
+    embedder: str = "bge"  # "bge" (sentence-transformers) | "hash" (offline, tests/dev)
     embedder_model: str = "BAAI/bge-small-en-v1.5"
     pdf_max_pages: int = 15
     chunk_chars: int = 1000

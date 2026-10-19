@@ -2,6 +2,7 @@
 
 No planner, no full text, no critic. It is the control group for every ablation.
 """
+
 from __future__ import annotations
 
 from typing import Any, Callable
@@ -46,7 +47,10 @@ def run_baseline(
 
     draft, usage = generate_draft(llm, question, [], evidence) if evidence else (None, Usage())
     state.update(
-        papers=papers, shortlist=shortlist, draft=draft, usage=usage,
+        papers=papers,
+        shortlist=shortlist,
+        draft=draft,
+        usage=usage,
         errors=update.get("errors", []),
         trace=update.get("trace", []) + [make_event("baseline", f"single-pass draft from {len(evidence)} abstracts")],
     )

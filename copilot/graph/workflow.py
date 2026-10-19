@@ -12,6 +12,7 @@
     "critic"    ... -> critic_agent loop        (full system)
 Node names must differ from state keys (``critique`` is the key, ``critic_agent`` the node).
 """
+
 from __future__ import annotations
 
 from collections import deque
@@ -104,7 +105,7 @@ def build_copilot(
     sources: dict[str, SearchFn] | None = None,
     embedder: Embedder | None = None,
     store: VectorStore | None = None,
-    fetch_pages: FetchPages | None = _UNSET,   # None => abstract-only reading
+    fetch_pages: FetchPages | None = _UNSET,  # None => abstract-only reading
 ) -> Copilot:
     """Compile the pipeline. Every dependency can be injected (tests, ablations)."""
     settings = settings or Settings.from_env()
@@ -129,8 +130,9 @@ def build_copilot(
     after_read = "writer" if stage >= 2 else END
     g.add_node("reader", make_reader_node(llm(reader_llm, settings.reader_model, 1500), store, fetch, settings))
     g.add_conditional_edges(
-        "retriever", partial(route_after_retriever, next_node=after_read),
-        list(dict.fromkeys(["reader", after_read, END])),   # END = empty shortlist
+        "retriever",
+        partial(route_after_retriever, next_node=after_read),
+        list(dict.fromkeys(["reader", after_read, END])),  # END = empty shortlist
     )
     g.add_edge("reader", after_read)
 
@@ -145,6 +147,8 @@ def build_copilot(
     return Copilot(g.compile(), store, settings, until)
 
 
-def build_graph(settings: Settings | None = None, *, planner_llm: Any = None, sources: dict[str, SearchFn] | None = None):
+def build_graph(
+    settings: Settings | None = None, *, planner_llm: Any = None, sources: dict[str, SearchFn] | None = None
+):
     """Retrieval-only graph (Week 1 API, kept for backward compatibility)."""
     return build_copilot(settings, until="retrieve", planner_llm=planner_llm, sources=sources).graph
