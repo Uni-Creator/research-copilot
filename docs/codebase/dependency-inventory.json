@@ -1,0 +1,1646 @@
+{
+  "root": "/home/prime/Desktop/Projects/research-copilot",
+  "total_modules": 55,
+  "cycles": [],
+  "modules": {
+    "copilot": {
+      "file_path": "copilot/__init__.py",
+      "module_name": "copilot",
+      "docstring": "",
+      "direct_internal_imports": [],
+      "direct_external_imports": [],
+      "reverse_dependencies": [],
+      "public_classes": [],
+      "public_functions": [],
+      "associated_tests": []
+    },
+    "copilot.agents": {
+      "file_path": "copilot/agents/__init__.py",
+      "module_name": "copilot.agents",
+      "docstring": "",
+      "direct_internal_imports": [],
+      "direct_external_imports": [],
+      "reverse_dependencies": [],
+      "public_classes": [],
+      "public_functions": [],
+      "associated_tests": []
+    },
+    "copilot.agents.critic": {
+      "file_path": "copilot/agents/critic.py",
+      "module_name": "copilot.agents.critic",
+      "docstring": "Critic agent: claim-to-evidence verification + coverage review, then a routing decision.",
+      "direct_internal_imports": [
+        "copilot.config",
+        "copilot.graph.routing",
+        "copilot.graph.state",
+        "copilot.llm",
+        "copilot.progress",
+        "copilot.tools.chunking"
+      ],
+      "direct_external_imports": [
+        "__future__",
+        "functools",
+        "pathlib",
+        "pydantic",
+        "re",
+        "typing"
+      ],
+      "reverse_dependencies": [
+        "copilot.graph.workflow",
+        "eval.metrics",
+        "tests.test_agents",
+        "tests.test_eval",
+        "tests.test_full_graph"
+      ],
+      "public_classes": [
+        "VerdictItem",
+        "VerifyOutput",
+        "CoverageOutput"
+      ],
+      "public_functions": [
+        "split_claims",
+        "support_rate",
+        "verify_claims",
+        "make_critic_node"
+      ],
+      "associated_tests": [
+        "tests/test_agents.py",
+        "tests/test_eval.py",
+        "tests/test_full_graph.py"
+      ]
+    },
+    "copilot.agents.planner": {
+      "file_path": "copilot/agents/planner.py",
+      "module_name": "copilot.agents.planner",
+      "docstring": "Planner agent: research question -> sub-questions + search queries.",
+      "direct_internal_imports": [
+        "copilot.graph.state",
+        "copilot.llm",
+        "copilot.progress"
+      ],
+      "direct_external_imports": [
+        "__future__",
+        "functools",
+        "pathlib",
+        "pydantic",
+        "typing"
+      ],
+      "reverse_dependencies": [
+        "copilot.graph.workflow",
+        "tests.test_full_graph",
+        "tests.test_graph",
+        "tests.test_planner"
+      ],
+      "public_classes": [
+        "PlannedSubQuestion",
+        "PlannerOutput"
+      ],
+      "public_functions": [
+        "build_user_prompt",
+        "fallback_plan",
+        "to_plan",
+        "make_planner_node"
+      ],
+      "associated_tests": [
+        "tests/test_full_graph.py",
+        "tests/test_graph.py",
+        "tests/test_planner.py"
+      ]
+    },
+    "copilot.agents.reader": {
+      "file_path": "copilot/agents/reader.py",
+      "module_name": "copilot.agents.reader",
+      "docstring": "Reader agent: one paper -> full text chunks in the vector store + structured PaperNotes.",
+      "direct_internal_imports": [
+        "copilot.config",
+        "copilot.graph.state",
+        "copilot.llm",
+        "copilot.progress",
+        "copilot.tools.chunking",
+        "copilot.tools.vectorstore"
+      ],
+      "direct_external_imports": [
+        "__future__",
+        "functools",
+        "pathlib",
+        "pydantic",
+        "typing"
+      ],
+      "reverse_dependencies": [
+        "copilot.graph.workflow",
+        "tests.test_agents",
+        "tests.test_full_graph"
+      ],
+      "public_classes": [
+        "NotesOut"
+      ],
+      "public_functions": [
+        "select_context",
+        "make_reader_node"
+      ],
+      "associated_tests": [
+        "tests/test_agents.py",
+        "tests/test_full_graph.py"
+      ]
+    },
+    "copilot.agents.retriever": {
+      "file_path": "copilot/agents/retriever.py",
+      "module_name": "copilot.agents.retriever",
+      "docstring": "Retriever agent: run the plan's queries against all sources, dedupe, rank, shortlist.",
+      "direct_internal_imports": [
+        "copilot.config",
+        "copilot.graph.state",
+        "copilot.progress",
+        "copilot.tools.papers",
+        "copilot.tools.ranking",
+        "copilot.tools.sources"
+      ],
+      "direct_external_imports": [
+        "__future__",
+        "collections",
+        "concurrent.futures",
+        "time",
+        "typing"
+      ],
+      "reverse_dependencies": [
+        "copilot.baseline",
+        "copilot.graph.workflow"
+      ],
+      "public_classes": [],
+      "public_functions": [
+        "make_retriever_node"
+      ],
+      "associated_tests": []
+    },
+    "copilot.agents.writer": {
+      "file_path": "copilot/agents/writer.py",
+      "module_name": "copilot.agents.writer",
+      "docstring": "Writer agent: evidence-grounded literature review with verifiable citations.",
+      "direct_internal_imports": [
+        "copilot.config",
+        "copilot.graph.state",
+        "copilot.llm",
+        "copilot.progress",
+        "copilot.tools.chunking",
+        "copilot.tools.vectorstore"
+      ],
+      "direct_external_imports": [
+        "__future__",
+        "dataclasses",
+        "functools",
+        "pathlib",
+        "re",
+        "typing"
+      ],
+      "reverse_dependencies": [
+        "copilot.baseline",
+        "copilot.graph.workflow",
+        "tests.test_agents"
+      ],
+      "public_classes": [
+        "EvidenceItem"
+      ],
+      "public_functions": [
+        "gather_evidence",
+        "to_aliases",
+        "resolve_citations",
+        "generate_draft",
+        "group_evidence",
+        "make_writer_node"
+      ],
+      "associated_tests": [
+        "tests/test_agents.py"
+      ]
+    },
+    "copilot.baseline": {
+      "file_path": "copilot/baseline.py",
+      "module_name": "copilot.baseline",
+      "docstring": "Single-agent baseline: ONE search with the raw question, abstracts as evidence, ONE writing call.",
+      "direct_internal_imports": [
+        "copilot.agents.retriever",
+        "copilot.agents.writer",
+        "copilot.config",
+        "copilot.graph.state",
+        "copilot.tools.chunking",
+        "copilot.tools.sources"
+      ],
+      "direct_external_imports": [
+        "__future__",
+        "typing"
+      ],
+      "reverse_dependencies": [
+        "eval.run_eval",
+        "tests.test_eval"
+      ],
+      "public_classes": [],
+      "public_functions": [
+        "run_baseline"
+      ],
+      "associated_tests": [
+        "tests/test_eval.py"
+      ]
+    },
+    "copilot.cli": {
+      "file_path": "copilot/cli.py",
+      "module_name": "copilot.cli",
+      "docstring": "CLI: python -m copilot.cli \"your research question\" [--out runs/slp] [--until critic]",
+      "direct_internal_imports": [
+        "copilot.config",
+        "copilot.graph.state",
+        "copilot.graph.workflow",
+        "copilot.progress",
+        "copilot.render"
+      ],
+      "direct_external_imports": [
+        "__future__",
+        "argparse",
+        "dataclasses",
+        "pathlib"
+      ],
+      "reverse_dependencies": [],
+      "public_classes": [],
+      "public_functions": [
+        "main"
+      ],
+      "associated_tests": []
+    },
+    "copilot.config": {
+      "file_path": "copilot/config.py",
+      "module_name": "copilot.config",
+      "docstring": "Runtime settings, read from environment variables (.env supported).",
+      "direct_internal_imports": [],
+      "direct_external_imports": [
+        "__future__",
+        "dataclasses",
+        "dotenv",
+        "os",
+        "pathlib"
+      ],
+      "reverse_dependencies": [
+        "copilot.agents.critic",
+        "copilot.agents.reader",
+        "copilot.agents.retriever",
+        "copilot.agents.writer",
+        "copilot.baseline",
+        "copilot.cli",
+        "copilot.factory",
+        "copilot.graph.routing",
+        "copilot.graph.workflow",
+        "copilot.service",
+        "copilot.tools.sources",
+        "eval.run_eval",
+        "eval.verify_dataset",
+        "tests.test_agents",
+        "tests.test_eval",
+        "tests.test_full_graph",
+        "tests.test_graph",
+        "ui.app"
+      ],
+      "public_classes": [
+        "Settings"
+      ],
+      "public_functions": [],
+      "associated_tests": [
+        "tests/test_agents.py",
+        "tests/test_eval.py",
+        "tests/test_full_graph.py",
+        "tests/test_graph.py"
+      ]
+    },
+    "copilot.factory": {
+      "file_path": "copilot/factory.py",
+      "module_name": "copilot.factory",
+      "docstring": "CopilotFactory: builds pipelines per request while sharing the expensive, stateful parts.",
+      "direct_internal_imports": [
+        "copilot.config",
+        "copilot.graph.workflow",
+        "copilot.tools.embeddings",
+        "copilot.tools.sources",
+        "copilot.tools.vectorstore"
+      ],
+      "direct_external_imports": [
+        "__future__",
+        "threading",
+        "typing"
+      ],
+      "reverse_dependencies": [
+        "copilot.service",
+        "tests.test_factory_ui",
+        "tests.test_service",
+        "ui.app"
+      ],
+      "public_classes": [
+        "CopilotFactory"
+      ],
+      "public_functions": [],
+      "associated_tests": [
+        "tests/test_factory_ui.py",
+        "tests/test_service.py"
+      ]
+    },
+    "copilot.graph": {
+      "file_path": "copilot/graph/__init__.py",
+      "module_name": "copilot.graph",
+      "docstring": "",
+      "direct_internal_imports": [],
+      "direct_external_imports": [],
+      "reverse_dependencies": [],
+      "public_classes": [],
+      "public_functions": [],
+      "associated_tests": []
+    },
+    "copilot.graph.routing": {
+      "file_path": "copilot/graph/routing.py",
+      "module_name": "copilot.graph.routing",
+      "docstring": "Routing helpers and loop/budget guards.",
+      "direct_internal_imports": [
+        "copilot.config",
+        "copilot.graph.state"
+      ],
+      "direct_external_imports": [
+        "__future__",
+        "langgraph.graph",
+        "langgraph.types"
+      ],
+      "reverse_dependencies": [
+        "copilot.agents.critic",
+        "copilot.graph.workflow"
+      ],
+      "public_classes": [],
+      "public_functions": [
+        "budget_exceeded",
+        "iterations_left",
+        "route_after_retriever",
+        "route_after_critic"
+      ],
+      "associated_tests": []
+    },
+    "copilot.graph.state": {
+      "file_path": "copilot/graph/state.py",
+      "module_name": "copilot.graph.state",
+      "docstring": "Shared state and typed data contracts for the research-copilot graph.",
+      "direct_internal_imports": [
+        "copilot.utils"
+      ],
+      "direct_external_imports": [
+        "__future__",
+        "datetime",
+        "operator",
+        "pydantic",
+        "re",
+        "typing"
+      ],
+      "reverse_dependencies": [
+        "copilot.agents.critic",
+        "copilot.agents.planner",
+        "copilot.agents.reader",
+        "copilot.agents.retriever",
+        "copilot.agents.writer",
+        "copilot.baseline",
+        "copilot.cli",
+        "copilot.graph.routing",
+        "copilot.graph.workflow",
+        "copilot.llm",
+        "copilot.progress",
+        "copilot.render",
+        "copilot.service",
+        "copilot.tools.arxiv",
+        "copilot.tools.chunking",
+        "copilot.tools.openalex",
+        "copilot.tools.papers",
+        "copilot.tools.pdf",
+        "copilot.tools.ranking",
+        "copilot.tools.semantic_scholar",
+        "copilot.tools.sources",
+        "copilot.tools.vectorstore",
+        "eval.metrics",
+        "eval.run_eval",
+        "eval.verify_dataset",
+        "tests.conftest",
+        "tests.test_agents",
+        "tests.test_dataset",
+        "tests.test_eval",
+        "tests.test_full_graph",
+        "tests.test_graph",
+        "tests.test_openalex",
+        "tests.test_planner",
+        "tests.test_progress",
+        "tests.test_reading",
+        "tests.test_retrieval_metrics",
+        "tests.test_state",
+        "tests.test_tools",
+        "ui.app"
+      ],
+      "public_classes": [
+        "Paper",
+        "SearchFilters",
+        "SubQuestion",
+        "ResearchPlan",
+        "PaperNotes",
+        "Chunk",
+        "Draft",
+        "ClaimCheck",
+        "CriticReport",
+        "Usage",
+        "TraceEvent",
+        "CopilotState"
+      ],
+      "public_functions": [
+        "compute_paper_id",
+        "make_event",
+        "merge_papers",
+        "merge_dicts",
+        "merge_usage",
+        "make_initial_state"
+      ],
+      "associated_tests": [
+        "tests/conftest.py",
+        "tests/test_agents.py",
+        "tests/test_dataset.py",
+        "tests/test_eval.py",
+        "tests/test_full_graph.py",
+        "tests/test_graph.py",
+        "tests/test_openalex.py",
+        "tests/test_planner.py",
+        "tests/test_progress.py",
+        "tests/test_reading.py",
+        "tests/test_retrieval_metrics.py",
+        "tests/test_state.py",
+        "tests/test_tools.py"
+      ]
+    },
+    "copilot.graph.workflow": {
+      "file_path": "copilot/graph/workflow.py",
+      "module_name": "copilot.graph.workflow",
+      "docstring": "Graph wiring.",
+      "direct_internal_imports": [
+        "copilot.agents.critic",
+        "copilot.agents.planner",
+        "copilot.agents.reader",
+        "copilot.agents.retriever",
+        "copilot.agents.writer",
+        "copilot.config",
+        "copilot.graph.routing",
+        "copilot.graph.state",
+        "copilot.llm",
+        "copilot.tools.embeddings",
+        "copilot.tools.http",
+        "copilot.tools.pdf",
+        "copilot.tools.sources",
+        "copilot.tools.vectorstore"
+      ],
+      "direct_external_imports": [
+        "__future__",
+        "collections",
+        "dataclasses",
+        "functools",
+        "httpx",
+        "langgraph.graph",
+        "pathlib",
+        "typing"
+      ],
+      "reverse_dependencies": [
+        "copilot.cli",
+        "copilot.factory",
+        "eval.run_eval",
+        "tests.test_full_graph",
+        "tests.test_graph"
+      ],
+      "public_classes": [
+        "Copilot"
+      ],
+      "public_functions": [
+        "default_fetcher",
+        "build_copilot",
+        "build_graph"
+      ],
+      "associated_tests": [
+        "tests/test_full_graph.py",
+        "tests/test_graph.py"
+      ]
+    },
+    "copilot.llm": {
+      "file_path": "copilot/llm.py",
+      "module_name": "copilot.llm",
+      "docstring": "Thin LLM helpers: model factory + structured-output call that also reports token usage.",
+      "direct_internal_imports": [
+        "copilot.graph.state"
+      ],
+      "direct_external_imports": [
+        "__future__",
+        "langchain.chat_models",
+        "langchain_core.rate_limiters",
+        "os",
+        "pydantic",
+        "typing"
+      ],
+      "reverse_dependencies": [
+        "copilot.agents.critic",
+        "copilot.agents.planner",
+        "copilot.agents.reader",
+        "copilot.agents.writer",
+        "copilot.graph.workflow",
+        "eval.run_eval"
+      ],
+      "public_classes": [
+        "StructuredOutputError"
+      ],
+      "public_functions": [
+        "get_llm",
+        "usage_from_message",
+        "structured_call",
+        "text_call"
+      ],
+      "associated_tests": []
+    },
+    "copilot.progress": {
+      "file_path": "copilot/progress.py",
+      "module_name": "copilot.progress",
+      "docstring": "Live progress: rich trace events while agents work, plus formatters for the CLI and the UI.",
+      "direct_internal_imports": [
+        "copilot.graph.state"
+      ],
+      "direct_external_imports": [
+        "__future__",
+        "langgraph.config",
+        "textwrap",
+        "typing"
+      ],
+      "reverse_dependencies": [
+        "copilot.agents.critic",
+        "copilot.agents.planner",
+        "copilot.agents.reader",
+        "copilot.agents.retriever",
+        "copilot.agents.writer",
+        "copilot.cli",
+        "tests.test_progress",
+        "ui.app"
+      ],
+      "public_classes": [
+        "Tracer"
+      ],
+      "public_functions": [
+        "short",
+        "format_event_text",
+        "format_event_md"
+      ],
+      "associated_tests": [
+        "tests/test_progress.py"
+      ]
+    },
+    "copilot.render": {
+      "file_path": "copilot/render.py",
+      "module_name": "copilot.render",
+      "docstring": "Turn a finished run into a readable report: numbered citations, comparison table, references.",
+      "direct_internal_imports": [
+        "copilot.graph.state",
+        "copilot.tools.chunking"
+      ],
+      "direct_external_imports": [
+        "__future__",
+        "enum",
+        "html",
+        "json",
+        "markdown",
+        "pathlib",
+        "pydantic",
+        "re",
+        "typing"
+      ],
+      "reverse_dependencies": [
+        "copilot.cli",
+        "copilot.service",
+        "tests.test_full_graph",
+        "ui.app"
+      ],
+      "public_classes": [],
+      "public_functions": [
+        "number_citations",
+        "render_markdown",
+        "render_html",
+        "dumps_state",
+        "save_run"
+      ],
+      "associated_tests": [
+        "tests/test_full_graph.py"
+      ]
+    },
+    "copilot.service": {
+      "file_path": "copilot/service.py",
+      "module_name": "copilot.service",
+      "docstring": "HTTP API: start a run, stream agent events live (SSE), fetch the finished report.",
+      "direct_internal_imports": [
+        "copilot.config",
+        "copilot.factory",
+        "copilot.graph.state",
+        "copilot.render"
+      ],
+      "direct_external_imports": [
+        "__future__",
+        "collections",
+        "concurrent.futures",
+        "contextlib",
+        "dataclasses",
+        "fastapi",
+        "fastapi.responses",
+        "hmac",
+        "json",
+        "os",
+        "pathlib",
+        "pydantic",
+        "threading",
+        "time",
+        "typing",
+        "uuid"
+      ],
+      "reverse_dependencies": [
+        "tests.test_service"
+      ],
+      "public_classes": [
+        "RunRequest",
+        "Run",
+        "RunManager"
+      ],
+      "public_functions": [
+        "summarize",
+        "create_app"
+      ],
+      "associated_tests": [
+        "tests/test_service.py"
+      ]
+    },
+    "copilot.tools": {
+      "file_path": "copilot/tools/__init__.py",
+      "module_name": "copilot.tools",
+      "docstring": "",
+      "direct_internal_imports": [],
+      "direct_external_imports": [],
+      "reverse_dependencies": [],
+      "public_classes": [],
+      "public_functions": [],
+      "associated_tests": []
+    },
+    "copilot.tools.arxiv": {
+      "file_path": "copilot/tools/arxiv.py",
+      "module_name": "copilot.tools.arxiv",
+      "docstring": "arXiv search (Atom API): query building, fetching, parsing.",
+      "direct_internal_imports": [
+        "copilot.graph.state",
+        "copilot.tools.http",
+        "copilot.utils"
+      ],
+      "direct_external_imports": [
+        "__future__",
+        "httpx",
+        "re",
+        "xml.etree.ElementTree"
+      ],
+      "reverse_dependencies": [
+        "copilot.tools.sources",
+        "tests.test_retrieval_metrics",
+        "tests.test_tools"
+      ],
+      "public_classes": [],
+      "public_functions": [
+        "build_arxiv_query",
+        "parse_arxiv_feed",
+        "search_arxiv"
+      ],
+      "associated_tests": [
+        "tests/test_retrieval_metrics.py",
+        "tests/test_tools.py"
+      ]
+    },
+    "copilot.tools.chunking": {
+      "file_path": "copilot/tools/chunking.py",
+      "module_name": "copilot.tools.chunking",
+      "docstring": "Split parsed PDF pages into citable chunks.",
+      "direct_internal_imports": [
+        "copilot.graph.state"
+      ],
+      "direct_external_imports": [
+        "__future__",
+        "re"
+      ],
+      "reverse_dependencies": [
+        "copilot.agents.critic",
+        "copilot.agents.reader",
+        "copilot.agents.writer",
+        "copilot.baseline",
+        "copilot.render",
+        "eval.metrics",
+        "tests.test_reading"
+      ],
+      "public_classes": [],
+      "public_functions": [
+        "abstract_chunk_id",
+        "paper_id_of",
+        "chunk_pages"
+      ],
+      "associated_tests": [
+        "tests/test_reading.py"
+      ]
+    },
+    "copilot.tools.embeddings": {
+      "file_path": "copilot/tools/embeddings.py",
+      "module_name": "copilot.tools.embeddings",
+      "docstring": "Embedders. ``bge`` for real runs (small enough for a 6 GB GPU or CPU); ``hash`` for tests/dev.",
+      "direct_internal_imports": [
+        "copilot.utils"
+      ],
+      "direct_external_imports": [
+        "__future__",
+        "numpy",
+        "sentence_transformers",
+        "torch",
+        "typing",
+        "zlib"
+      ],
+      "reverse_dependencies": [
+        "copilot.factory",
+        "copilot.graph.workflow",
+        "copilot.tools.vectorstore",
+        "tests.test_agents",
+        "tests.test_full_graph",
+        "tests.test_reading"
+      ],
+      "public_classes": [
+        "Embedder",
+        "HashingEmbedder",
+        "SentenceTransformerEmbedder"
+      ],
+      "public_functions": [
+        "get_embedder"
+      ],
+      "associated_tests": [
+        "tests/test_agents.py",
+        "tests/test_full_graph.py",
+        "tests/test_reading.py"
+      ]
+    },
+    "copilot.tools.http": {
+      "file_path": "copilot/tools/http.py",
+      "module_name": "copilot.tools.http",
+      "docstring": "HTTP plumbing: shared rate limiting, retry with backoff, and disk caching.",
+      "direct_internal_imports": [],
+      "direct_external_imports": [
+        "__future__",
+        "datetime",
+        "email.utils",
+        "hashlib",
+        "httpx",
+        "json",
+        "logging",
+        "pathlib",
+        "random",
+        "threading",
+        "time",
+        "typing"
+      ],
+      "reverse_dependencies": [
+        "copilot.graph.workflow",
+        "copilot.tools.arxiv",
+        "copilot.tools.openalex",
+        "copilot.tools.pdf",
+        "copilot.tools.semantic_scholar",
+        "copilot.tools.sources"
+      ],
+      "public_classes": [
+        "RateLimiter",
+        "DiskCache"
+      ],
+      "public_functions": [
+        "get_with_retry"
+      ],
+      "associated_tests": []
+    },
+    "copilot.tools.openalex": {
+      "file_path": "copilot/tools/openalex.py",
+      "module_name": "copilot.tools.openalex",
+      "docstring": "OpenAlex Works API search adapter.",
+      "direct_internal_imports": [
+        "copilot.graph.state",
+        "copilot.tools.http",
+        "copilot.utils"
+      ],
+      "direct_external_imports": [
+        "__future__",
+        "httpx",
+        "re",
+        "typing"
+      ],
+      "reverse_dependencies": [
+        "copilot.tools.sources",
+        "tests.test_openalex"
+      ],
+      "public_classes": [],
+      "public_functions": [
+        "year_filter",
+        "reconstruct_abstract",
+        "clean_search_query",
+        "parse_openalex_work",
+        "search_openalex"
+      ],
+      "associated_tests": [
+        "tests/test_openalex.py"
+      ]
+    },
+    "copilot.tools.papers": {
+      "file_path": "copilot/tools/papers.py",
+      "module_name": "copilot.tools.papers",
+      "docstring": "Deduplication of paper records coming from different sources.",
+      "direct_internal_imports": [
+        "copilot.graph.state"
+      ],
+      "direct_external_imports": [
+        "__future__"
+      ],
+      "reverse_dependencies": [
+        "copilot.agents.retriever",
+        "tests.test_state"
+      ],
+      "public_classes": [
+        "PaperIndex"
+      ],
+      "public_functions": [],
+      "associated_tests": [
+        "tests/test_state.py"
+      ]
+    },
+    "copilot.tools.pdf": {
+      "file_path": "copilot/tools/pdf.py",
+      "module_name": "copilot.tools.pdf",
+      "docstring": "PDF download + text extraction (PyMuPDF), with caching and a polite rate limit.",
+      "direct_internal_imports": [
+        "copilot.graph.state",
+        "copilot.tools.http"
+      ],
+      "direct_external_imports": [
+        "__future__",
+        "httpx",
+        "pymupdf",
+        "re"
+      ],
+      "reverse_dependencies": [
+        "copilot.graph.workflow",
+        "tests.test_reading"
+      ],
+      "public_classes": [
+        "PdfFetcher"
+      ],
+      "public_functions": [
+        "clean_text",
+        "parse_pdf_bytes"
+      ],
+      "associated_tests": [
+        "tests/test_reading.py"
+      ]
+    },
+    "copilot.tools.ranking": {
+      "file_path": "copilot/tools/ranking.py",
+      "module_name": "copilot.tools.ranking",
+      "docstring": "Heuristic paper ranking: rank-fusion relevance + citations + recency + keyword overlap.",
+      "direct_internal_imports": [
+        "copilot.graph.state",
+        "copilot.utils"
+      ],
+      "direct_external_imports": [
+        "__future__",
+        "dataclasses",
+        "datetime",
+        "math"
+      ],
+      "reverse_dependencies": [
+        "copilot.agents.retriever",
+        "tests.test_retrieval_metrics",
+        "tests.test_tools"
+      ],
+      "public_classes": [
+        "RankWeights",
+        "MMRWeights"
+      ],
+      "public_functions": [
+        "rank_papers"
+      ],
+      "associated_tests": [
+        "tests/test_retrieval_metrics.py",
+        "tests/test_tools.py"
+      ]
+    },
+    "copilot.tools.semantic_scholar": {
+      "file_path": "copilot/tools/semantic_scholar.py",
+      "module_name": "copilot.tools.semantic_scholar",
+      "docstring": "Semantic Scholar Graph API search.",
+      "direct_internal_imports": [
+        "copilot.graph.state",
+        "copilot.tools.http"
+      ],
+      "direct_external_imports": [
+        "__future__",
+        "httpx",
+        "typing"
+      ],
+      "reverse_dependencies": [
+        "tests.test_tools"
+      ],
+      "public_classes": [],
+      "public_functions": [
+        "year_param",
+        "parse_s2_item",
+        "search_semantic_scholar"
+      ],
+      "associated_tests": [
+        "tests/test_tools.py"
+      ]
+    },
+    "copilot.tools.sources": {
+      "file_path": "copilot/tools/sources.py",
+      "module_name": "copilot.tools.sources",
+      "docstring": "Wire concrete search backends (arXiv and OpenAlex) behind one interface.",
+      "direct_internal_imports": [
+        "copilot.config",
+        "copilot.graph.state",
+        "copilot.tools.arxiv",
+        "copilot.tools.http",
+        "copilot.tools.openalex"
+      ],
+      "direct_external_imports": [
+        "__future__",
+        "httpx",
+        "logging",
+        "typing"
+      ],
+      "reverse_dependencies": [
+        "copilot.agents.retriever",
+        "copilot.baseline",
+        "copilot.factory",
+        "copilot.graph.workflow",
+        "eval.run_eval",
+        "eval.verify_dataset"
+      ],
+      "public_classes": [],
+      "public_functions": [
+        "build_sources"
+      ],
+      "associated_tests": []
+    },
+    "copilot.tools.vectorstore": {
+      "file_path": "copilot/tools/vectorstore.py",
+      "module_name": "copilot.tools.vectorstore",
+      "docstring": "Minimal thread-safe vector store (numpy cosine search, JSON+npy persistence).",
+      "direct_internal_imports": [
+        "copilot.graph.state",
+        "copilot.tools.embeddings"
+      ],
+      "direct_external_imports": [
+        "__future__",
+        "json",
+        "numpy",
+        "pathlib",
+        "threading"
+      ],
+      "reverse_dependencies": [
+        "copilot.agents.reader",
+        "copilot.agents.writer",
+        "copilot.factory",
+        "copilot.graph.workflow",
+        "tests.test_agents",
+        "tests.test_reading"
+      ],
+      "public_classes": [
+        "VectorStore"
+      ],
+      "public_functions": [],
+      "associated_tests": [
+        "tests/test_agents.py",
+        "tests/test_reading.py"
+      ]
+    },
+    "copilot.utils": {
+      "file_path": "copilot/utils.py",
+      "module_name": "copilot.utils",
+      "docstring": "Small text helpers shared by tools and agents.",
+      "direct_internal_imports": [],
+      "direct_external_imports": [
+        "__future__",
+        "hashlib",
+        "re"
+      ],
+      "reverse_dependencies": [
+        "copilot.graph.state",
+        "copilot.tools.arxiv",
+        "copilot.tools.embeddings",
+        "copilot.tools.openalex",
+        "copilot.tools.ranking",
+        "eval.metrics"
+      ],
+      "public_classes": [],
+      "public_functions": [
+        "normalize_title",
+        "tokenize",
+        "short_hash"
+      ],
+      "associated_tests": []
+    },
+    "eval": {
+      "file_path": "eval/__init__.py",
+      "module_name": "eval",
+      "docstring": "",
+      "direct_internal_imports": [],
+      "direct_external_imports": [],
+      "reverse_dependencies": [],
+      "public_classes": [],
+      "public_functions": [],
+      "associated_tests": []
+    },
+    "eval.metrics": {
+      "file_path": "eval/metrics.py",
+      "module_name": "eval.metrics",
+      "docstring": "Evaluation metrics for a finished run.",
+      "direct_internal_imports": [
+        "copilot.agents.critic",
+        "copilot.graph.state",
+        "copilot.tools.chunking",
+        "copilot.utils"
+      ],
+      "direct_external_imports": [
+        "__future__",
+        "math",
+        "typing"
+      ],
+      "reverse_dependencies": [
+        "eval.run_eval",
+        "eval.verify_dataset",
+        "tests.test_dataset",
+        "tests.test_eval",
+        "tests.test_retrieval_metrics"
+      ],
+      "public_classes": [],
+      "public_functions": [
+        "match_paper",
+        "coverage",
+        "precision_at_k",
+        "recall_at_k",
+        "ndcg_at_k",
+        "mrr",
+        "average_precision",
+        "subquestion_coverage",
+        "evaluate_run"
+      ],
+      "associated_tests": [
+        "tests/test_dataset.py",
+        "tests/test_eval.py",
+        "tests/test_retrieval_metrics.py"
+      ]
+    },
+    "eval.run_eval": {
+      "file_path": "eval/run_eval.py",
+      "module_name": "eval.run_eval",
+      "docstring": "Run benchmark ablations with persistent logs and incremental results.",
+      "direct_internal_imports": [
+        "copilot.baseline",
+        "copilot.config",
+        "copilot.graph.state",
+        "copilot.graph.workflow",
+        "copilot.llm",
+        "copilot.tools.sources",
+        "eval.metrics"
+      ],
+      "direct_external_imports": [
+        "__future__",
+        "argparse",
+        "collections.abc",
+        "dataclasses",
+        "json",
+        "logging",
+        "pathlib",
+        "statistics",
+        "time",
+        "traceback",
+        "typing"
+      ],
+      "reverse_dependencies": [
+        "tests.test_eval"
+      ],
+      "public_classes": [],
+      "public_functions": [
+        "build_columns",
+        "configure_logging",
+        "log_state_diagnostics",
+        "results_table",
+        "save_results",
+        "evaluate",
+        "make_variants",
+        "main"
+      ],
+      "associated_tests": [
+        "tests/test_eval.py"
+      ]
+    },
+    "eval.verify_dataset": {
+      "file_path": "eval/verify_dataset.py",
+      "module_name": "eval.verify_dataset",
+      "docstring": "Check an eval dataset against arXiv + Semantic Scholar before you trust it.",
+      "direct_internal_imports": [
+        "copilot.config",
+        "copilot.graph.state",
+        "copilot.tools.sources",
+        "eval.metrics"
+      ],
+      "direct_external_imports": [
+        "__future__",
+        "argparse",
+        "copy",
+        "dataclasses",
+        "json",
+        "pathlib"
+      ],
+      "reverse_dependencies": [
+        "tests.test_verify_dataset"
+      ],
+      "public_classes": [
+        "Resolution"
+      ],
+      "public_functions": [
+        "resolve",
+        "verify_dataset",
+        "format_report",
+        "main"
+      ],
+      "associated_tests": [
+        "tests/test_verify_dataset.py"
+      ]
+    },
+    "tests": {
+      "file_path": "tests/__init__.py",
+      "module_name": "tests",
+      "docstring": "",
+      "direct_internal_imports": [],
+      "direct_external_imports": [],
+      "reverse_dependencies": [],
+      "public_classes": [],
+      "public_functions": [],
+      "associated_tests": []
+    },
+    "tests.conftest": {
+      "file_path": "tests/conftest.py",
+      "module_name": "tests.conftest",
+      "docstring": "",
+      "direct_internal_imports": [
+        "copilot.graph.state"
+      ],
+      "direct_external_imports": [
+        "types"
+      ],
+      "reverse_dependencies": [
+        "tests.test_agents",
+        "tests.test_dataset",
+        "tests.test_eval",
+        "tests.test_full_graph",
+        "tests.test_graph",
+        "tests.test_planner",
+        "tests.test_retrieval_metrics",
+        "tests.test_state",
+        "tests.test_tools",
+        "tests.test_verify_dataset"
+      ],
+      "public_classes": [
+        "FakeLLM",
+        "ScriptedLLM"
+      ],
+      "public_functions": [
+        "mk",
+        "fake_source"
+      ],
+      "associated_tests": []
+    },
+    "tests.test_agents": {
+      "file_path": "tests/test_agents.py",
+      "module_name": "tests.test_agents",
+      "docstring": "",
+      "direct_internal_imports": [
+        "copilot.agents.critic",
+        "copilot.agents.reader",
+        "copilot.agents.writer",
+        "copilot.config",
+        "copilot.graph.state",
+        "copilot.tools.embeddings",
+        "copilot.tools.vectorstore",
+        "tests.conftest"
+      ],
+      "direct_external_imports": [],
+      "reverse_dependencies": [],
+      "public_classes": [],
+      "public_functions": [
+        "test_resolve_citations_maps_aliases_and_strips_invented_ones",
+        "test_split_claims_only_cited_sentences",
+        "test_verify_claims_batches_and_handles_missing_chunks_and_verdicts",
+        "test_reader_full_text_and_pdf_failure_fallback",
+        "test_critic_routing_decisions"
+      ],
+      "associated_tests": []
+    },
+    "tests.test_dataset": {
+      "file_path": "tests/test_dataset.py",
+      "module_name": "tests.test_dataset",
+      "docstring": "",
+      "direct_internal_imports": [
+        "copilot.graph.state",
+        "eval.metrics",
+        "tests.conftest"
+      ],
+      "direct_external_imports": [
+        "json",
+        "pathlib",
+        "re"
+      ],
+      "reverse_dependencies": [],
+      "public_classes": [],
+      "public_functions": [
+        "test_dataset_schema_is_valid",
+        "test_every_entry_matches_a_paper_built_from_it",
+        "test_arxiv_version_title_changes_still_match_by_id",
+        "test_dataset_topic_runs_through_the_evaluator"
+      ],
+      "associated_tests": []
+    },
+    "tests.test_eval": {
+      "file_path": "tests/test_eval.py",
+      "module_name": "tests.test_eval",
+      "docstring": "",
+      "direct_internal_imports": [
+        "copilot.agents.critic",
+        "copilot.baseline",
+        "copilot.config",
+        "copilot.graph.state",
+        "eval.metrics",
+        "eval.run_eval",
+        "tests.conftest"
+      ],
+      "direct_external_imports": [
+        "re"
+      ],
+      "reverse_dependencies": [],
+      "public_classes": [],
+      "public_functions": [
+        "test_match_paper_and_coverage",
+        "test_baseline_runs_one_search_and_one_write_call",
+        "test_evaluate_run_metrics",
+        "test_evaluate_aggregates_and_survives_a_failing_variant"
+      ],
+      "associated_tests": []
+    },
+    "tests.test_factory_ui": {
+      "file_path": "tests/test_factory_ui.py",
+      "module_name": "tests.test_factory_ui",
+      "docstring": "",
+      "direct_internal_imports": [
+        "copilot.factory",
+        "tests.test_full_graph"
+      ],
+      "direct_external_imports": [
+        "pathlib",
+        "pytest",
+        "streamlit.testing.v1"
+      ],
+      "reverse_dependencies": [],
+      "public_classes": [],
+      "public_functions": [
+        "test_factory_shares_store_and_applies_fulltext_flag",
+        "test_ui_end_to_end_with_streamlit_apptest"
+      ],
+      "associated_tests": []
+    },
+    "tests.test_full_graph": {
+      "file_path": "tests/test_full_graph.py",
+      "module_name": "tests.test_full_graph",
+      "docstring": "",
+      "direct_internal_imports": [
+        "copilot.agents.critic",
+        "copilot.agents.planner",
+        "copilot.agents.reader",
+        "copilot.config",
+        "copilot.graph.state",
+        "copilot.graph.workflow",
+        "copilot.render",
+        "copilot.tools.embeddings",
+        "tests.conftest"
+      ],
+      "direct_external_imports": [
+        "re"
+      ],
+      "reverse_dependencies": [
+        "tests.test_factory_ui",
+        "tests.test_progress",
+        "tests.test_service"
+      ],
+      "public_classes": [],
+      "public_functions": [
+        "overrides",
+        "test_full_pipeline_with_critic_retrieve_more_loop",
+        "test_until_write_skips_critic_and_until_read_skips_writer",
+        "test_empty_search_ends_gracefully",
+        "test_render_report"
+      ],
+      "associated_tests": []
+    },
+    "tests.test_graph": {
+      "file_path": "tests/test_graph.py",
+      "module_name": "tests.test_graph",
+      "docstring": "",
+      "direct_internal_imports": [
+        "copilot.agents.planner",
+        "copilot.config",
+        "copilot.graph.state",
+        "copilot.graph.workflow",
+        "tests.conftest"
+      ],
+      "direct_external_imports": [],
+      "reverse_dependencies": [],
+      "public_classes": [],
+      "public_functions": [
+        "test_end_to_end_plan_retrieve_dedupe_rank",
+        "test_followup_pass_only_searches_new_queries_and_grows_shortlist",
+        "test_source_failure_is_reported_not_fatal"
+      ],
+      "associated_tests": []
+    },
+    "tests.test_openalex": {
+      "file_path": "tests/test_openalex.py",
+      "module_name": "tests.test_openalex",
+      "docstring": "",
+      "direct_internal_imports": [
+        "copilot.graph.state",
+        "copilot.tools.openalex"
+      ],
+      "direct_external_imports": [
+        "__future__"
+      ],
+      "reverse_dependencies": [],
+      "public_classes": [],
+      "public_functions": [
+        "test_reconstruct_abstract_uses_word_positions",
+        "test_reconstruct_abstract_empty",
+        "test_year_filter_range_and_bounds",
+        "test_parse_openalex_work_maps_metadata"
+      ],
+      "associated_tests": []
+    },
+    "tests.test_planner": {
+      "file_path": "tests/test_planner.py",
+      "module_name": "tests.test_planner",
+      "docstring": "",
+      "direct_internal_imports": [
+        "copilot.agents.planner",
+        "copilot.graph.state",
+        "tests.conftest"
+      ],
+      "direct_external_imports": [],
+      "reverse_dependencies": [],
+      "public_classes": [],
+      "public_functions": [
+        "test_planner_sanitises_output",
+        "test_planner_respects_user_year_filter",
+        "test_planner_falls_back_when_llm_fails",
+        "test_planner_followup_appends_only_new_subquestions"
+      ],
+      "associated_tests": []
+    },
+    "tests.test_progress": {
+      "file_path": "tests/test_progress.py",
+      "module_name": "tests.test_progress",
+      "docstring": "",
+      "direct_internal_imports": [
+        "copilot.graph.state",
+        "copilot.progress",
+        "tests.test_full_graph"
+      ],
+      "direct_external_imports": [
+        "threading"
+      ],
+      "reverse_dependencies": [],
+      "public_classes": [],
+      "public_functions": [
+        "test_tracer_works_outside_a_graph_run",
+        "test_events_stream_live_with_detail_and_in_a_sensible_order",
+        "test_events_come_from_multiple_reader_threads_without_loss",
+        "test_formatters_show_the_details"
+      ],
+      "associated_tests": []
+    },
+    "tests.test_reading": {
+      "file_path": "tests/test_reading.py",
+      "module_name": "tests.test_reading",
+      "docstring": "",
+      "direct_internal_imports": [
+        "copilot.graph.state",
+        "copilot.tools.chunking",
+        "copilot.tools.embeddings",
+        "copilot.tools.pdf",
+        "copilot.tools.vectorstore"
+      ],
+      "direct_external_imports": [
+        "numpy",
+        "pytest"
+      ],
+      "reverse_dependencies": [],
+      "public_classes": [],
+      "public_functions": [
+        "test_chunking_packs_windows_and_filters",
+        "test_clean_text_dehyphenates_and_joins_lines",
+        "test_vectorstore_search_filter_and_persistence",
+        "test_parse_pdf_bytes_stops_at_references"
+      ],
+      "associated_tests": []
+    },
+    "tests.test_retrieval_metrics": {
+      "file_path": "tests/test_retrieval_metrics.py",
+      "module_name": "tests.test_retrieval_metrics",
+      "docstring": "Tests for eval/metrics.py: coverage, ranked-retrieval metrics, MMR ranking, and arxiv query.",
+      "direct_internal_imports": [
+        "copilot.graph.state",
+        "copilot.tools.arxiv",
+        "copilot.tools.ranking",
+        "eval.metrics",
+        "tests.conftest"
+      ],
+      "direct_external_imports": [
+        "math",
+        "pytest"
+      ],
+      "reverse_dependencies": [],
+      "public_classes": [],
+      "public_functions": [
+        "test_match_paper_by_arxiv_id",
+        "test_match_paper_by_doi",
+        "test_match_paper_by_title_jaccard",
+        "test_match_paper_empty_must_cite",
+        "test_coverage_empty_must_cite",
+        "test_coverage_all_found",
+        "test_coverage_partial",
+        "test_coverage_none_found",
+        "ranked_pool",
+        "must_cite",
+        "test_precision_at_k_zero_k",
+        "test_precision_at_k_no_must_cite",
+        "test_precision_at_k_first_hit_at_rank_2",
+        "test_recall_at_k",
+        "test_ndcg_at_k",
+        "test_ndcg_at_k_perfect",
+        "test_ndcg_edge_cases",
+        "test_mrr_hit_at_rank_2",
+        "test_mrr_no_hit",
+        "test_mrr_empty",
+        "test_average_precision",
+        "test_average_precision_no_hits",
+        "test_average_precision_empty_must",
+        "test_subquestion_coverage_empty_plan",
+        "test_subquestion_coverage_basic",
+        "test_subquestion_coverage_no_overlap",
+        "test_mmr_promotes_diverse_papers",
+        "test_mmr_single_paper",
+        "test_mmr_empty",
+        "test_build_arxiv_query_and_mode",
+        "test_build_arxiv_query_or_mode",
+        "test_build_arxiv_query_date_filter",
+        "test_build_arxiv_query_empty",
+        "test_build_arxiv_query_known_title"
+      ],
+      "associated_tests": []
+    },
+    "tests.test_service": {
+      "file_path": "tests/test_service.py",
+      "module_name": "tests.test_service",
+      "docstring": "",
+      "direct_internal_imports": [
+        "copilot.factory",
+        "copilot.service",
+        "tests.test_full_graph"
+      ],
+      "direct_external_imports": [
+        "fastapi.testclient",
+        "json",
+        "pathlib",
+        "pytest",
+        "tempfile",
+        "threading",
+        "time"
+      ],
+      "reverse_dependencies": [],
+      "public_classes": [],
+      "public_functions": [
+        "test_full_run_summary_events_and_reports",
+        "test_validation_and_unknown_run",
+        "test_api_key_required_when_configured",
+        "test_report_not_ready_then_available_semantics",
+        "test_failed_run_reports_error_not_hang",
+        "test_queue_limit_and_eviction"
+      ],
+      "associated_tests": []
+    },
+    "tests.test_state": {
+      "file_path": "tests/test_state.py",
+      "module_name": "tests.test_state",
+      "docstring": "",
+      "direct_internal_imports": [
+        "copilot.graph.state",
+        "copilot.tools.papers",
+        "tests.conftest"
+      ],
+      "direct_external_imports": [],
+      "reverse_dependencies": [],
+      "public_classes": [],
+      "public_functions": [
+        "test_paper_id_priority",
+        "test_merge_keeps_richest_data",
+        "test_index_dedupes_across_sources_by_title_then_ids",
+        "test_reducers",
+        "test_plan_queries_unique_and_initial_state"
+      ],
+      "associated_tests": []
+    },
+    "tests.test_tools": {
+      "file_path": "tests/test_tools.py",
+      "module_name": "tests.test_tools",
+      "docstring": "",
+      "direct_internal_imports": [
+        "copilot.graph.state",
+        "copilot.tools.arxiv",
+        "copilot.tools.ranking",
+        "copilot.tools.semantic_scholar",
+        "tests.conftest"
+      ],
+      "direct_external_imports": [],
+      "reverse_dependencies": [],
+      "public_classes": [],
+      "public_functions": [
+        "test_parse_arxiv_feed",
+        "test_build_arxiv_query",
+        "test_s2_parsing",
+        "test_ranking_prefers_multi_query_relevant_cited_papers"
+      ],
+      "associated_tests": []
+    },
+    "tests.test_verify_dataset": {
+      "file_path": "tests/test_verify_dataset.py",
+      "module_name": "tests.test_verify_dataset",
+      "docstring": "",
+      "direct_internal_imports": [
+        "eval.verify_dataset",
+        "tests.conftest"
+      ],
+      "direct_external_imports": [
+        "json"
+      ],
+      "reverse_dependencies": [],
+      "public_classes": [],
+      "public_functions": [
+        "test_resolve_statuses_and_hints",
+        "test_verify_fills_ids_promotes_and_never_mutates_input",
+        "test_cli_report_exit_code_and_write"
+      ],
+      "associated_tests": []
+    },
+    "ui": {
+      "file_path": "ui/__init__.py",
+      "module_name": "ui",
+      "docstring": "",
+      "direct_internal_imports": [],
+      "direct_external_imports": [],
+      "reverse_dependencies": [],
+      "public_classes": [],
+      "public_functions": [],
+      "associated_tests": []
+    },
+    "ui.app": {
+      "file_path": "ui/app.py",
+      "module_name": "ui.app",
+      "docstring": "Streamlit front end for the research copilot.   streamlit run ui/app.py",
+      "direct_internal_imports": [
+        "copilot.config",
+        "copilot.factory",
+        "copilot.graph.state",
+        "copilot.progress",
+        "copilot.render"
+      ],
+      "direct_external_imports": [
+        "__future__",
+        "hmac",
+        "os",
+        "pathlib",
+        "streamlit",
+        "sys"
+      ],
+      "reverse_dependencies": [],
+      "public_classes": [],
+      "public_functions": [
+        "get_factory",
+        "gate",
+        "run_pipeline",
+        "show_result",
+        "main"
+      ],
+      "associated_tests": []
+    }
+  }
+}

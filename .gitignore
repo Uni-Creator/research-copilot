@@ -8,3 +8,5 @@ output/
 traces/*.json
 runs
 eval/results*
+.agents
+.ruff_cache
