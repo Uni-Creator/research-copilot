@@ -1,4 +1,4 @@
-.PHONY: install test lint ui api eval docker map map-check
+.PHONY: install test lint ui api eval docker map map-check sync
 install:
 	pip install -r requirements.txt -r requirements-app.txt
 test:
@@ -17,4 +17,7 @@ map:
 	uv run python scripts/codebase_map.py --incremental
 map-check:
 	uv run python scripts/codebase_map.py --check
+sync:
+	uv run python scripts/sync_codebase.py
+
 

@@ -41,35 +41,35 @@ Three modules form the structural backbone of the repository. Changes to their i
 
 | Modified Module | Risk Level | Downstream Modules Affected | Recommended Test Suite |
 |---|---|---|---|
-| [copilot/graph/state.py](file:///home/prime/Desktop/Projects/research-copilot/copilot/graph/state.py) | **CRITICAL** | `agents.*`, `workflow`, `service`, `cli`, `render`, `tools.*`, `eval.*` | `pytest tests/test_state.py tests/test_full_graph.py` |
-| [copilot/config.py](file:///home/prime/Desktop/Projects/research-copilot/copilot/config.py) | **HIGH** | `agents.*`, `workflow`, `factory`, `service`, `cli`, `routing`, `sources` | `pytest tests/test_agents.py tests/test_graph.py` |
-| [copilot/graph/workflow.py](file:///home/prime/Desktop/Projects/research-copilot/copilot/graph/workflow.py) | **HIGH** | `factory`, `cli`, `service`, `eval.run_eval` | `pytest tests/test_graph.py tests/test_full_graph.py` |
-| [copilot/graph/routing.py](file:///home/prime/Desktop/Projects/research-copilot/copilot/graph/routing.py) | **HIGH** | `workflow`, `critic` | `pytest tests/test_graph.py` |
-| [copilot/factory.py](file:///home/prime/Desktop/Projects/research-copilot/copilot/factory.py) | **MEDIUM** | `service`, `ui.app` | `pytest tests/test_factory_ui.py tests/test_service.py` |
-| [copilot/llm.py](file:///home/prime/Desktop/Projects/research-copilot/copilot/llm.py) | **MEDIUM** | `agents.planner`, `agents.reader`, `agents.writer`, `agents.critic`, `workflow` | `pytest tests/test_agents.py tests/test_full_graph.py` |
-| [copilot/progress.py](file:///home/prime/Desktop/Projects/research-copilot/copilot/progress.py) | **LOW** | `agents.*`, `cli`, `ui.app` | `pytest tests/test_progress.py` |
-| [copilot/render.py](file:///home/prime/Desktop/Projects/research-copilot/copilot/render.py) | **LOW** | `cli`, `service`, `ui.app` | `pytest tests/test_full_graph.py` |
-| [copilot/agents/planner.py](file:///home/prime/Desktop/Projects/research-copilot/copilot/agents/planner.py) | **MEDIUM** | `workflow` | `pytest tests/test_planner.py tests/test_full_graph.py` |
-| [copilot/agents/retriever.py](file:///home/prime/Desktop/Projects/research-copilot/copilot/agents/retriever.py) | **MEDIUM** | `workflow`, `baseline` | `pytest tests/test_retrieval_metrics.py tests/test_full_graph.py` |
-| [copilot/agents/reader.py](file:///home/prime/Desktop/Projects/research-copilot/copilot/agents/reader.py) | **MEDIUM** | `workflow` | `pytest tests/test_reading.py tests/test_agents.py` |
-| [copilot/agents/writer.py](file:///home/prime/Desktop/Projects/research-copilot/copilot/agents/writer.py) | **MEDIUM** | `workflow`, `baseline` | `pytest tests/test_agents.py` |
-| [copilot/agents/critic.py](file:///home/prime/Desktop/Projects/research-copilot/copilot/agents/critic.py) | **MEDIUM** | `workflow`, `eval.metrics` | `pytest tests/test_agents.py tests/test_eval.py` |
-| [copilot/tools/sources.py](file:///home/prime/Desktop/Projects/research-copilot/copilot/tools/sources.py) | **MEDIUM** | `retriever`, `factory`, `baseline`, `workflow` | `pytest tests/test_tools.py` |
-| [copilot/tools/arxiv.py](file:///home/prime/Desktop/Projects/research-copilot/copilot/tools/arxiv.py) | **LOW** | `tools.sources` | `pytest tests/test_tools.py tests/test_retrieval_metrics.py` |
-| [copilot/tools/openalex.py](file:///home/prime/Desktop/Projects/research-copilot/copilot/tools/openalex.py) | **LOW** | `tools.sources` | `pytest tests/test_openalex.py` |
-| [copilot/tools/semantic_scholar.py](file:///home/prime/Desktop/Projects/research-copilot/copilot/tools/semantic_scholar.py) | **LOW** | `tools.sources` | `pytest tests/test_tools.py` |
-| [copilot/tools/pdf.py](file:///home/prime/Desktop/Projects/research-copilot/copilot/tools/pdf.py) | **LOW** | `workflow`, `factory` | `pytest tests/test_reading.py` |
-| [copilot/tools/chunking.py](file:///home/prime/Desktop/Projects/research-copilot/copilot/tools/chunking.py) | **MEDIUM** | `reader`, `writer`, `critic`, `baseline`, `render` | `pytest tests/test_reading.py tests/test_agents.py` |
-| [copilot/tools/vectorstore.py](file:///home/prime/Desktop/Projects/research-copilot/copilot/tools/vectorstore.py) | **MEDIUM** | `reader`, `writer`, `factory`, `workflow` | `pytest tests/test_reading.py tests/test_agents.py` |
-| [copilot/tools/embeddings.py](file:///home/prime/Desktop/Projects/research-copilot/copilot/tools/embeddings.py) | **LOW** | `vectorstore`, `factory`, `workflow` | `pytest tests/test_reading.py tests/test_full_graph.py` |
-| [copilot/tools/ranking.py](file:///home/prime/Desktop/Projects/research-copilot/copilot/tools/ranking.py) | **LOW** | `retriever` | `pytest tests/test_retrieval_metrics.py` |
-| [copilot/tools/http.py](file:///home/prime/Desktop/Projects/research-copilot/copilot/tools/http.py) | **MEDIUM** | `arxiv`, `openalex`, `pdf`, `sources`, `workflow` | `pytest tests/test_tools.py` |
-| [copilot/tools/papers.py](file:///home/prime/Desktop/Projects/research-copilot/copilot/tools/papers.py) | **LOW** | `retriever` | `pytest tests/test_state.py` |
-| [eval/metrics.py](file:///home/prime/Desktop/Projects/research-copilot/eval/metrics.py) | **MEDIUM** | `eval.run_eval`, `eval.verify_dataset` | `pytest tests/test_eval.py tests/test_dataset.py` |
-| [eval/run_eval.py](file:///home/prime/Desktop/Projects/research-copilot/eval/run_eval.py) | **LOW** | (None - evaluation entry point) | `pytest tests/test_eval.py` |
-| [copilot/service.py](file:///home/prime/Desktop/Projects/research-copilot/copilot/service.py) | **LOW** | (None - HTTP service entry point) | `pytest tests/test_service.py` |
-| [copilot/cli.py](file:///home/prime/Desktop/Projects/research-copilot/copilot/cli.py) | **LOW** | (None - CLI entry point) | `pytest tests/test_full_graph.py` |
-| [ui/app.py](file:///home/prime/Desktop/Projects/research-copilot/ui/app.py) | **LOW** | (None - Streamlit UI entry point) | `pytest tests/test_factory_ui.py` |
+| [copilot/graph/state.py](../../copilot/graph/state.py) | **CRITICAL** | `agents.*`, `workflow`, `service`, `cli`, `render`, `tools.*`, `eval.*` | `pytest tests/test_state.py tests/test_full_graph.py` |
+| [copilot/config.py](../../copilot/config.py) | **HIGH** | `agents.*`, `workflow`, `factory`, `service`, `cli`, `routing`, `sources` | `pytest tests/test_agents.py tests/test_graph.py` |
+| [copilot/graph/workflow.py](../../copilot/graph/workflow.py) | **HIGH** | `factory`, `cli`, `service`, `eval.run_eval` | `pytest tests/test_graph.py tests/test_full_graph.py` |
+| [copilot/graph/routing.py](../../copilot/graph/routing.py) | **HIGH** | `workflow`, `critic` | `pytest tests/test_graph.py` |
+| [copilot/factory.py](../../copilot/factory.py) | **MEDIUM** | `service`, `ui.app` | `pytest tests/test_factory_ui.py tests/test_service.py` |
+| [copilot/llm.py](../../copilot/llm.py) | **MEDIUM** | `agents.planner`, `agents.reader`, `agents.writer`, `agents.critic`, `workflow` | `pytest tests/test_agents.py tests/test_full_graph.py` |
+| [copilot/progress.py](../../copilot/progress.py) | **LOW** | `agents.*`, `cli`, `ui.app` | `pytest tests/test_progress.py` |
+| [copilot/render.py](../../copilot/render.py) | **LOW** | `cli`, `service`, `ui.app` | `pytest tests/test_full_graph.py` |
+| [copilot/agents/planner.py](../../copilot/agents/planner.py) | **MEDIUM** | `workflow` | `pytest tests/test_planner.py tests/test_full_graph.py` |
+| [copilot/agents/retriever.py](../../copilot/agents/retriever.py) | **MEDIUM** | `workflow`, `baseline` | `pytest tests/test_retrieval_metrics.py tests/test_full_graph.py` |
+| [copilot/agents/reader.py](../../copilot/agents/reader.py) | **MEDIUM** | `workflow` | `pytest tests/test_reading.py tests/test_agents.py` |
+| [copilot/agents/writer.py](../../copilot/agents/writer.py) | **MEDIUM** | `workflow`, `baseline` | `pytest tests/test_agents.py` |
+| [copilot/agents/critic.py](../../copilot/agents/critic.py) | **MEDIUM** | `workflow`, `eval.metrics` | `pytest tests/test_agents.py tests/test_eval.py` |
+| [copilot/tools/sources.py](../../copilot/tools/sources.py) | **MEDIUM** | `retriever`, `factory`, `baseline`, `workflow` | `pytest tests/test_tools.py` |
+| [copilot/tools/arxiv.py](../../copilot/tools/arxiv.py) | **LOW** | `tools.sources` | `pytest tests/test_tools.py tests/test_retrieval_metrics.py` |
+| [copilot/tools/openalex.py](../../copilot/tools/openalex.py) | **LOW** | `tools.sources` | `pytest tests/test_openalex.py` |
+| [copilot/tools/semantic_scholar.py](../../copilot/tools/semantic_scholar.py) | **LOW** | `tools.sources` | `pytest tests/test_tools.py` |
+| [copilot/tools/pdf.py](../../copilot/tools/pdf.py) | **LOW** | `workflow`, `factory` | `pytest tests/test_reading.py` |
+| [copilot/tools/chunking.py](../../copilot/tools/chunking.py) | **MEDIUM** | `reader`, `writer`, `critic`, `baseline`, `render` | `pytest tests/test_reading.py tests/test_agents.py` |
+| [copilot/tools/vectorstore.py](../../copilot/tools/vectorstore.py) | **MEDIUM** | `reader`, `writer`, `factory`, `workflow` | `pytest tests/test_reading.py tests/test_agents.py` |
+| [copilot/tools/embeddings.py](../../copilot/tools/embeddings.py) | **LOW** | `vectorstore`, `factory`, `workflow` | `pytest tests/test_reading.py tests/test_full_graph.py` |
+| [copilot/tools/ranking.py](../../copilot/tools/ranking.py) | **LOW** | `retriever` | `pytest tests/test_retrieval_metrics.py` |
+| [copilot/tools/http.py](../../copilot/tools/http.py) | **MEDIUM** | `arxiv`, `openalex`, `pdf`, `sources`, `workflow` | `pytest tests/test_tools.py` |
+| [copilot/tools/papers.py](../../copilot/tools/papers.py) | **LOW** | `retriever` | `pytest tests/test_state.py` |
+| [eval/metrics.py](../../eval/metrics.py) | **MEDIUM** | `eval.run_eval`, `eval.verify_dataset` | `pytest tests/test_eval.py tests/test_dataset.py` |
+| [eval/run_eval.py](../../eval/run_eval.py) | **LOW** | (None - evaluation entry point) | `pytest tests/test_eval.py` |
+| [copilot/service.py](../../copilot/service.py) | **LOW** | (None - HTTP service entry point) | `pytest tests/test_service.py` |
+| [copilot/cli.py](../../copilot/cli.py) | **LOW** | (None - CLI entry point) | `pytest tests/test_full_graph.py` |
+| [ui/app.py](../../ui/app.py) | **LOW** | (None - Streamlit UI entry point) | `pytest tests/test_factory_ui.py` |
 
 ---
 

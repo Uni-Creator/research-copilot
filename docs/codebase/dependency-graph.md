@@ -32,104 +32,168 @@ The codebase adheres to a unidirectional dependency hierarchy:
 
 ```mermaid
 graph TD
-    subgraph UI_and_Service["Interfaces & Entrypoints"]
-        ui_app["ui.app"]
-        copilot_service["copilot.service"]
-        copilot_cli["copilot.cli"]
-        eval_run_eval["eval.run_eval"]
-        eval_verify_dataset["eval.verify_dataset"]
+    subgraph copilot["copilot"]
+        copilot["copilot"]
     end
-
-    subgraph Factory_and_Workflow["Factory & Workflow Layer"]
-        copilot_factory["copilot.factory"]
-        copilot_graph_workflow["copilot.graph.workflow"]
-        copilot_graph_routing["copilot.graph.routing"]
-        copilot_baseline["copilot.baseline"]
+    subgraph copilot_agents["copilot.agents"]
+        copilot_agents["agents"]
+        copilot_agents_critic["critic"]
+        copilot_agents_planner["planner"]
+        copilot_agents_reader["reader"]
+        copilot_agents_retriever["retriever"]
+        copilot_agents_writer["writer"]
     end
-
-    subgraph Agents["Agents Layer"]
-        copilot_agents_planner["agents.planner"]
-        copilot_agents_retriever["agents.retriever"]
-        copilot_agents_reader["agents.reader"]
-        copilot_agents_writer["agents.writer"]
-        copilot_agents_critic["agents.critic"]
+    subgraph copilot_core["copilot.core"]
+        copilot_baseline["baseline"]
+        copilot_cli["cli"]
+        copilot_config["config"]
+        copilot_factory["factory"]
+        copilot_llm["llm"]
+        copilot_progress["progress"]
+        copilot_render["render"]
+        copilot_service["service"]
+        copilot_utils["utils"]
     end
-
-    subgraph Tools["Tools & Retrieval Layer"]
-        copilot_tools_sources["tools.sources"]
-        copilot_tools_arxiv["tools.arxiv"]
-        copilot_tools_openalex["tools.openalex"]
-        copilot_tools_semantic_scholar["tools.semantic_scholar"]
-        copilot_tools_pdf["tools.pdf"]
-        copilot_tools_chunking["tools.chunking"]
-        copilot_tools_vectorstore["tools.vectorstore"]
-        copilot_tools_embeddings["tools.embeddings"]
-        copilot_tools_ranking["tools.ranking"]
-        copilot_tools_papers["tools.papers"]
-        copilot_tools_http["tools.http"]
+    subgraph copilot_graph["copilot.graph"]
+        copilot_graph["graph"]
+        copilot_graph_routing["routing"]
+        copilot_graph_state["state"]
+        copilot_graph_workflow["workflow"]
     end
-
-    subgraph Core_and_State["Core State & Foundation"]
-        copilot_graph_state["copilot.graph.state"]
-        copilot_config["copilot.config"]
-        copilot_llm["copilot.llm"]
-        copilot_progress["copilot.progress"]
-        copilot_render["copilot.render"]
-        copilot_utils["copilot.utils"]
-        eval_metrics["eval.metrics"]
+    subgraph copilot_tools["copilot.tools"]
+        copilot_tools["tools"]
+        copilot_tools_arxiv["arxiv"]
+        copilot_tools_chunking["chunking"]
+        copilot_tools_embeddings["embeddings"]
+        copilot_tools_http["http"]
+        copilot_tools_openalex["openalex"]
+        copilot_tools_papers["papers"]
+        copilot_tools_pdf["pdf"]
+        copilot_tools_ranking["ranking"]
+        copilot_tools_semantic_scholar["semantic_scholar"]
+        copilot_tools_sources["sources"]
+        copilot_tools_vectorstore["vectorstore"]
     end
-
-    ui_app --> copilot_factory
+    subgraph eval["eval"]
+        eval["eval"]
+        eval_metrics["metrics"]
+        eval_run_eval["run_eval"]
+        eval_verify_dataset["verify_dataset"]
+    end
+    subgraph ui["ui"]
+        ui["ui"]
+        ui_app["app"]
+    end
+    copilot_agents_critic --> copilot_config
+    copilot_agents_critic --> copilot_graph_routing
+    copilot_agents_critic --> copilot_graph_state
+    copilot_agents_critic --> copilot_llm
+    copilot_agents_critic --> copilot_progress
+    copilot_agents_critic --> copilot_tools_chunking
+    copilot_agents_planner --> copilot_graph_state
+    copilot_agents_planner --> copilot_llm
+    copilot_agents_planner --> copilot_progress
+    copilot_agents_reader --> copilot_config
+    copilot_agents_reader --> copilot_graph_state
+    copilot_agents_reader --> copilot_llm
+    copilot_agents_reader --> copilot_progress
+    copilot_agents_reader --> copilot_tools_chunking
+    copilot_agents_reader --> copilot_tools_vectorstore
+    copilot_agents_retriever --> copilot_config
+    copilot_agents_retriever --> copilot_graph_state
+    copilot_agents_retriever --> copilot_progress
+    copilot_agents_retriever --> copilot_tools_papers
+    copilot_agents_retriever --> copilot_tools_ranking
+    copilot_agents_retriever --> copilot_tools_sources
+    copilot_agents_writer --> copilot_config
+    copilot_agents_writer --> copilot_graph_state
+    copilot_agents_writer --> copilot_llm
+    copilot_agents_writer --> copilot_progress
+    copilot_agents_writer --> copilot_tools_chunking
+    copilot_agents_writer --> copilot_tools_vectorstore
+    copilot_baseline --> copilot_agents_retriever
+    copilot_baseline --> copilot_agents_writer
+    copilot_baseline --> copilot_config
+    copilot_baseline --> copilot_graph_state
+    copilot_baseline --> copilot_tools_chunking
+    copilot_baseline --> copilot_tools_sources
+    copilot_cli --> copilot_config
+    copilot_cli --> copilot_graph_state
+    copilot_cli --> copilot_graph_workflow
+    copilot_cli --> copilot_progress
+    copilot_cli --> copilot_render
+    copilot_factory --> copilot_config
+    copilot_factory --> copilot_graph_workflow
+    copilot_factory --> copilot_tools_embeddings
+    copilot_factory --> copilot_tools_sources
+    copilot_factory --> copilot_tools_vectorstore
+    copilot_graph_routing --> copilot_config
+    copilot_graph_routing --> copilot_graph_state
+    copilot_graph_state --> copilot_utils
+    copilot_graph_workflow --> copilot_agents_critic
+    copilot_graph_workflow --> copilot_agents_planner
+    copilot_graph_workflow --> copilot_agents_reader
+    copilot_graph_workflow --> copilot_agents_retriever
+    copilot_graph_workflow --> copilot_agents_writer
+    copilot_graph_workflow --> copilot_config
+    copilot_graph_workflow --> copilot_graph_routing
+    copilot_graph_workflow --> copilot_graph_state
+    copilot_graph_workflow --> copilot_llm
+    copilot_graph_workflow --> copilot_tools_embeddings
+    copilot_graph_workflow --> copilot_tools_http
+    copilot_graph_workflow --> copilot_tools_pdf
+    copilot_graph_workflow --> copilot_tools_sources
+    copilot_graph_workflow --> copilot_tools_vectorstore
+    copilot_llm --> copilot_graph_state
+    copilot_progress --> copilot_graph_state
+    copilot_render --> copilot_graph_state
+    copilot_render --> copilot_tools_chunking
+    copilot_service --> copilot_config
+    copilot_service --> copilot_factory
+    copilot_service --> copilot_graph_state
+    copilot_service --> copilot_render
+    copilot_tools_arxiv --> copilot_graph_state
+    copilot_tools_arxiv --> copilot_tools_http
+    copilot_tools_arxiv --> copilot_utils
+    copilot_tools_chunking --> copilot_graph_state
+    copilot_tools_embeddings --> copilot_utils
+    copilot_tools_openalex --> copilot_graph_state
+    copilot_tools_openalex --> copilot_tools_http
+    copilot_tools_openalex --> copilot_utils
+    copilot_tools_papers --> copilot_graph_state
+    copilot_tools_pdf --> copilot_graph_state
+    copilot_tools_pdf --> copilot_tools_http
+    copilot_tools_ranking --> copilot_graph_state
+    copilot_tools_ranking --> copilot_utils
+    copilot_tools_semantic_scholar --> copilot_graph_state
+    copilot_tools_semantic_scholar --> copilot_tools_http
+    copilot_tools_sources --> copilot_config
+    copilot_tools_sources --> copilot_graph_state
+    copilot_tools_sources --> copilot_tools_arxiv
+    copilot_tools_sources --> copilot_tools_http
+    copilot_tools_sources --> copilot_tools_openalex
+    copilot_tools_vectorstore --> copilot_graph_state
+    copilot_tools_vectorstore --> copilot_tools_embeddings
+    eval_metrics --> copilot_agents_critic
+    eval_metrics --> copilot_graph_state
+    eval_metrics --> copilot_tools_chunking
+    eval_metrics --> copilot_utils
+    eval_run_eval --> copilot_baseline
+    eval_run_eval --> copilot_config
+    eval_run_eval --> copilot_graph_state
+    eval_run_eval --> copilot_graph_workflow
+    eval_run_eval --> copilot_llm
+    eval_run_eval --> copilot_tools_sources
+    eval_run_eval --> eval_metrics
+    eval_verify_dataset --> copilot_config
+    eval_verify_dataset --> copilot_graph_state
+    eval_verify_dataset --> copilot_tools_sources
+    eval_verify_dataset --> eval_metrics
     ui_app --> copilot_config
+    ui_app --> copilot_factory
     ui_app --> copilot_graph_state
     ui_app --> copilot_progress
     ui_app --> copilot_render
-
-    copilot_service --> copilot_factory
-    copilot_service --> copilot_config
-    copilot_service --> copilot_graph_state
-    copilot_service --> copilot_render
-
-    copilot_cli --> copilot_graph_workflow
-    copilot_cli --> copilot_config
-    copilot_cli --> copilot_graph_state
-    copilot_cli --> copilot_progress
-    copilot_cli --> copilot_render
-
-    copilot_factory --> copilot_graph_workflow
-    copilot_factory --> copilot_tools_sources
-    copilot_factory --> copilot_tools_embeddings
-    copilot_factory --> copilot_tools_vectorstore
-
-    copilot_graph_workflow --> copilot_agents_planner
-    copilot_graph_workflow --> copilot_agents_retriever
-    copilot_graph_workflow --> copilot_agents_reader
-    copilot_graph_workflow --> copilot_agents_writer
-    copilot_graph_workflow --> copilot_agents_critic
-    copilot_graph_workflow --> copilot_graph_routing
-
-    copilot_agents_critic --> copilot_tools_chunking
-    copilot_agents_reader --> copilot_tools_chunking
-    copilot_agents_reader --> copilot_tools_vectorstore
-    copilot_agents_retriever --> copilot_tools_sources
-    copilot_agents_retriever --> copilot_tools_ranking
-    copilot_agents_retriever --> copilot_tools_papers
-    copilot_agents_writer --> copilot_tools_chunking
-    copilot_agents_writer --> copilot_tools_vectorstore
-
-    copilot_tools_sources --> copilot_tools_arxiv
-    copilot_tools_sources --> copilot_tools_openalex
-    copilot_tools_sources --> copilot_tools_http
-    copilot_tools_vectorstore --> copilot_tools_embeddings
-    copilot_tools_pdf --> copilot_tools_http
-    copilot_tools_arxiv --> copilot_tools_http
-    copilot_tools_openalex --> copilot_tools_http
-
-    copilot_graph_state --> copilot_utils
-    copilot_tools_arxiv --> copilot_utils
-    copilot_tools_openalex --> copilot_utils
-    copilot_tools_ranking --> copilot_utils
-    copilot_tools_embeddings --> copilot_utils
 ```
 
 ---
@@ -142,35 +206,44 @@ The table below shows the coupling metrics for key internal modules:
 
 | Module | Fan-In (Reverse Dependencies) | Fan-Out | Reverse Dependencies (Importers) |
 |---|---|---|---|
-| `copilot.graph.state` | 22 | 1 | All agents, workflow, service, cli, tools, render, eval |
-| `copilot.config` | 11 | 0 | agents (retriever, reader, writer, critic), factory, service, cli, workflow, routing, sources |
-| `copilot.tools.http` | 6 | 0 | arxiv, openalex, semantic_scholar, pdf, sources, workflow |
-| `copilot.progress` | 6 | 1 | planner, retriever, reader, writer, critic, cli |
-| `copilot.tools.chunking` | 5 | 1 | reader, writer, critic, baseline, render |
-| `copilot.utils` | 5 | 0 | state, arxiv, openalex, ranking, embeddings |
-| `copilot.llm` | 5 | 1 | planner, reader, writer, critic, workflow |
-| `copilot.tools.vectorstore` | 4 | 2 | reader, writer, factory, workflow |
-| `copilot.tools.sources` | 4 | 5 | retriever, baseline, factory, workflow |
-| `copilot.tools.embeddings` | 3 | 1 | vectorstore, factory, workflow |
-| `copilot.graph.workflow` | 2 | 14 | cli, factory |
-| `copilot.render` | 2 | 2 | cli, service |
-| `copilot.graph.routing` | 2 | 2 | critic, workflow |
-| `copilot.factory` | 2 | 5 | service, ui.app |
-| `copilot.agents.retriever` | 2 | 6 | baseline, workflow |
-| `copilot.agents.writer` | 2 | 6 | baseline, workflow |
-| `copilot.agents.planner` | 1 | 3 | workflow |
-| `copilot.agents.reader` | 1 | 6 | workflow |
-| `copilot.agents.critic` | 1 | 6 | workflow |
-| `copilot.tools.arxiv` | 1 | 3 | sources |
-| `copilot.tools.openalex` | 1 | 3 | sources |
-| `copilot.tools.pdf` | 1 | 2 | workflow |
-| `copilot.tools.papers` | 1 | 1 | retriever |
-| `copilot.tools.ranking` | 1 | 2 | retriever |
-| `copilot.service` | 0 | 4 | (None - runtime entry point) |
-| `copilot.cli` | 0 | 5 | (None - runtime entry point) |
+| `copilot.graph.state` | 39 | 1 | copilot.agents.critic, copilot.agents.planner, copilot.agents.reader, copilot.agents.retriever, copilot.agents.writer, copilot.baseline, copilot.cli, copilot.graph.routing, copilot.graph.workflow, copilot.llm, copilot.progress, copilot.render, copilot.service, copilot.tools.arxiv, copilot.tools.chunking, copilot.tools.openalex, copilot.tools.papers, copilot.tools.pdf, copilot.tools.ranking, copilot.tools.semantic_scholar, copilot.tools.sources, copilot.tools.vectorstore, eval.metrics, eval.run_eval, eval.verify_dataset, tests.conftest, tests.test_agents, tests.test_dataset, tests.test_eval, tests.test_full_graph, tests.test_graph, tests.test_openalex, tests.test_planner, tests.test_progress, tests.test_reading, tests.test_retrieval_metrics, tests.test_state, tests.test_tools, ui.app |
+| `copilot.config` | 18 | 0 | copilot.agents.critic, copilot.agents.reader, copilot.agents.retriever, copilot.agents.writer, copilot.baseline, copilot.cli, copilot.factory, copilot.graph.routing, copilot.graph.workflow, copilot.service, copilot.tools.sources, eval.run_eval, eval.verify_dataset, tests.test_agents, tests.test_eval, tests.test_full_graph, tests.test_graph, ui.app |
+| `copilot.progress` | 8 | 1 | copilot.agents.critic, copilot.agents.planner, copilot.agents.reader, copilot.agents.retriever, copilot.agents.writer, copilot.cli, tests.test_progress, ui.app |
+| `copilot.tools.chunking` | 7 | 1 | copilot.agents.critic, copilot.agents.reader, copilot.agents.writer, copilot.baseline, copilot.render, eval.metrics, tests.test_reading |
+| `copilot.utils` | 6 | 0 | copilot.graph.state, copilot.tools.arxiv, copilot.tools.embeddings, copilot.tools.openalex, copilot.tools.ranking, eval.metrics |
+| `copilot.tools.vectorstore` | 6 | 2 | copilot.agents.reader, copilot.agents.writer, copilot.factory, copilot.graph.workflow, tests.test_agents, tests.test_reading |
+| `copilot.tools.sources` | 6 | 5 | copilot.agents.retriever, copilot.baseline, copilot.factory, copilot.graph.workflow, eval.run_eval, eval.verify_dataset |
+| `copilot.tools.http` | 6 | 0 | copilot.graph.workflow, copilot.tools.arxiv, copilot.tools.openalex, copilot.tools.pdf, copilot.tools.semantic_scholar, copilot.tools.sources |
+| `copilot.tools.embeddings` | 6 | 1 | copilot.factory, copilot.graph.workflow, copilot.tools.vectorstore, tests.test_agents, tests.test_full_graph, tests.test_reading |
+| `copilot.llm` | 6 | 1 | copilot.agents.critic, copilot.agents.planner, copilot.agents.reader, copilot.agents.writer, copilot.graph.workflow, eval.run_eval |
+| `eval.metrics` | 5 | 4 | eval.run_eval, eval.verify_dataset, tests.test_dataset, tests.test_eval, tests.test_retrieval_metrics |
+| `copilot.graph.workflow` | 5 | 14 | copilot.cli, copilot.factory, eval.run_eval, tests.test_full_graph, tests.test_graph |
+| `copilot.agents.critic` | 5 | 6 | copilot.graph.workflow, eval.metrics, tests.test_agents, tests.test_eval, tests.test_full_graph |
+| `copilot.render` | 4 | 2 | copilot.cli, copilot.service, tests.test_full_graph, ui.app |
+| `copilot.factory` | 4 | 5 | copilot.service, tests.test_factory_ui, tests.test_service, ui.app |
+| `copilot.agents.planner` | 4 | 3 | copilot.graph.workflow, tests.test_full_graph, tests.test_graph, tests.test_planner |
+| `copilot.tools.ranking` | 3 | 2 | copilot.agents.retriever, tests.test_retrieval_metrics, tests.test_tools |
+| `copilot.tools.arxiv` | 3 | 3 | copilot.tools.sources, tests.test_retrieval_metrics, tests.test_tools |
+| `copilot.agents.writer` | 3 | 6 | copilot.baseline, copilot.graph.workflow, tests.test_agents |
+| `copilot.agents.reader` | 3 | 6 | copilot.graph.workflow, tests.test_agents, tests.test_full_graph |
+| `copilot.tools.pdf` | 2 | 2 | copilot.graph.workflow, tests.test_reading |
+| `copilot.tools.papers` | 2 | 1 | copilot.agents.retriever, tests.test_state |
+| `copilot.tools.openalex` | 2 | 3 | copilot.tools.sources, tests.test_openalex |
+| `copilot.graph.routing` | 2 | 2 | copilot.agents.critic, copilot.graph.workflow |
+| `copilot.baseline` | 2 | 6 | eval.run_eval, tests.test_eval |
+| `copilot.agents.retriever` | 2 | 6 | copilot.baseline, copilot.graph.workflow |
+| `eval.verify_dataset` | 1 | 4 | tests.test_verify_dataset |
+| `eval.run_eval` | 1 | 7 | tests.test_eval |
+| `copilot.tools.semantic_scholar` | 1 | 2 | tests.test_tools |
+| `copilot.service` | 1 | 4 | tests.test_service |
 | `ui.app` | 0 | 5 | (None - runtime entry point) |
-| `eval.run_eval` | 0 | 7 | (None - runtime entry point) |
-
+| `ui` | 0 | 0 | (None - runtime entry point) |
+| `eval` | 0 | 0 | (None - runtime entry point) |
+| `copilot.tools` | 0 | 0 | (None - runtime entry point) |
+| `copilot.graph` | 0 | 0 | (None - runtime entry point) |
+| `copilot.cli` | 0 | 5 | (None - runtime entry point) |
+| `copilot.agents` | 0 | 0 | (None - runtime entry point) |
+| `copilot` | 0 | 0 | (None - runtime entry point) |
 ---
 
 ## Dynamic & Runtime Dependencies

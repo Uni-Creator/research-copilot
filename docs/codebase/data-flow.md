@@ -72,7 +72,7 @@ sequenceDiagram
 ## 2. Stage-by-Stage Data Transformation
 
 ### Step 1: Initialization
-- **Function**: `make_initial_state(question, filters)` in [copilot/graph/state.py](file:///home/prime/Desktop/Projects/research-copilot/copilot/graph/state.py)
+- **Function**: `make_initial_state(question, filters)` in [copilot/graph/state.py](../../copilot/graph/state.py)
 - **State Injected**:
   - `question: str`: sanitized user research question.
   - `filters: SearchFilters`: optional constraints (`year_from`, `year_to`, `max_papers`).
@@ -80,7 +80,7 @@ sequenceDiagram
 
 ### Step 2: Planning Stage
 - **Input**: `question`, `filters`
-- **Agent**: [copilot/agents/planner.py](file:///home/prime/Desktop/Projects/research-copilot/copilot/agents/planner.py)
+- **Agent**: [copilot/agents/planner.py](../../copilot/agents/planner.py)
 - **Transformation**:
   - LLM receives structured system prompt with academic search guidelines.
   - Emits JSON matching `PlannerOutput` schema containing 3–5 `SubQuestion` items, each with 2–3 targeted boolean academic search queries.
@@ -89,7 +89,7 @@ sequenceDiagram
 
 ### Step 3: Multi-Source Retrieval & Deduplication
 - **Input**: `plan.all_queries()`, `filters`, `searched_queries`
-- **Agent**: [copilot/agents/retriever.py](file:///home/prime/Desktop/Projects/research-copilot/copilot/agents/retriever.py)
+- **Agent**: [copilot/agents/retriever.py](../../copilot/agents/retriever.py)
 - **Transformation**:
   - Filters out queries already in `searched_queries` (to avoid redundant API calls on retry loops).
   - Queries `arXiv` (XML Atom API) and `OpenAlex` (JSON REST API) concurrently using `ThreadPoolExecutor`.
@@ -109,7 +109,7 @@ sequenceDiagram
 
 ### Step 4: Parallel Reading & VectorStore Indexing
 - **Branching**: `route_after_retriever` identifies paper IDs in `shortlist` lacking notes in `state["notes"]`. Fans out using `Send("reader", {"paper": p, "question": q})`.
-- **Agent**: [copilot/agents/reader.py](file:///home/prime/Desktop/Projects/research-copilot/copilot/agents/reader.py)
+- **Agent**: [copilot/agents/reader.py](../../copilot/agents/reader.py)
 - **Transformation per Paper**:
   - Attempts PDF download via `PdfFetcher` (HTTP disk cache with 7-day TTL).
   - Falls back to abstract if PDF is unavailable or unparseable.
@@ -126,7 +126,7 @@ sequenceDiagram
 
 ### Step 5: Evidence Synthesis & Writer
 - **Input**: `notes`, `shortlist`, `plan`
-- **Agent**: [copilot/agents/writer.py](file:///home/prime/Desktop/Projects/research-copilot/copilot/agents/writer.py)
+- **Agent**: [copilot/agents/writer.py](../../copilot/agents/writer.py)
 - **Transformation**:
   - For each sub-question, queries `VectorStore` to retrieve the top 5 most relevant evidence chunks across all read papers (capped at `max_evidence_chunks=24`).
   - Assigns temporary short aliases to evidence chunks (e.g. `[C1]`, `[C2]`) to facilitate LLM citation accuracy.
@@ -138,7 +138,7 @@ sequenceDiagram
 
 ### Step 6: Claim-Level Verification & Critic Loop
 - **Input**: `draft`, `plan`
-- **Agent**: [copilot/agents/critic.py](file:///home/prime/Desktop/Projects/research-copilot/copilot/agents/critic.py)
+- **Agent**: [copilot/agents/critic.py](../../copilot/agents/critic.py)
 - **Transformation**:
   - `split_claims()` parses every cited sentence from `draft.markdown`.
   - For each claim, retrieves the exact passage text of its cited chunk IDs from `VectorStore`.
@@ -156,7 +156,7 @@ sequenceDiagram
 - **Output State**: `critique: CriticReport(...)`.
 
 ### Step 7: Final Rendering & Persistence
-- **Module**: [copilot/render.py](file:///home/prime/Desktop/Projects/research-copilot/copilot/render.py)
+- **Module**: [copilot/render.py](../../copilot/render.py)
 - **Transformation**:
   - Replaces `[cite:<chunk_id>]` tokens with human-readable paper number citations `[n]` referencing the bibliography.
   - Generates a summary comparison table of problems, methods, datasets, and metrics directly from Reader `PaperNotes` (preventing prose hallucination).

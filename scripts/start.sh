@@ -11,6 +11,10 @@ case "${APP:-ui}" in
       --browser.gatherUsageStats=false $EXTRA ;;
   api)
     exec uvicorn copilot.service:create_app --factory --host 0.0.0.0 --port "${PORT:-8000}" ;;
+  map)
+    exec python scripts/codebase_map.py ;;
+  map-check)
+    exec python scripts/codebase_map.py --check ;;
   *)
     echo "unknown APP='$APP' (use ui or api)" >&2; exit 2 ;;
 esac

@@ -320,7 +320,12 @@ def validate_documentation_links(root: Path) -> list[str]:
         return [f"Missing documentation directory: {docs_dir}"]
 
     link_pattern = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
-    for md_file in docs_dir.glob("*.md"):
+    md_files = list(docs_dir.glob("*.md"))
+    agents_md = root / "AGENTS.md"
+    if agents_md.exists():
+        md_files.append(agents_md)
+
+    for md_file in md_files:
         content = md_file.read_text(encoding="utf-8")
         for match in link_pattern.finditer(content):
             link = match.group(2)

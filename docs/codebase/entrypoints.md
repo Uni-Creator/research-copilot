@@ -8,7 +8,7 @@ This document catalogs all execution entry points, service APIs, CLI commands, b
 
 The CLI runs the full research pipeline locally in-process, printing real-time event traces to the terminal and saving outputs to disk.
 
-- **Source File**: [copilot/cli.py](file:///home/prime/Desktop/Projects/research-copilot/copilot/cli.py)
+- **Source File**: [copilot/cli.py](../../copilot/cli.py)
 - **Invocation**:
   ```bash
   python -m copilot.cli "How does reinforcement learning from human feedback compare to direct preference optimization?" [options]
@@ -40,7 +40,7 @@ When execution completes, `copilot/render.py:save_run` writes:
 
 Production-ready web service wrapping `CopilotFactory` with background execution, thread pool concurrency control, and real-time SSE streaming.
 
-- **Source File**: [copilot/service.py](file:///home/prime/Desktop/Projects/research-copilot/copilot/service.py)
+- **Source File**: [copilot/service.py](../../copilot/service.py)
 - **Invocation**:
   ```bash
   uvicorn copilot.service:create_app --factory --port 8000
@@ -70,7 +70,7 @@ Production-ready web service wrapping `CopilotFactory` with background execution
 
 Graphical interface featuring real-time agent execution progress, claim verification tabs, and direct downloads.
 
-- **Source File**: [ui/app.py](file:///home/prime/Desktop/Projects/research-copilot/ui/app.py)
+- **Source File**: [ui/app.py](../../ui/app.py)
 - **Invocation**:
   ```bash
   streamlit run ui/app.py
@@ -93,13 +93,13 @@ Graphical interface featuring real-time agent execution progress, claim verifica
 
 Tools for evaluating retrieval quality, claim grounding, and ablation performance against curated benchmark datasets.
 
-- **Benchmark Runner**: [eval/run_eval.py](file:///home/prime/Desktop/Projects/research-copilot/eval/run_eval.py)
+- **Benchmark Runner**: [eval/run_eval.py](../../eval/run_eval.py)
   ```bash
   python -m eval.run_eval --topics eval/datasets/slp.json --out eval/results
   # or via Makefile
   make eval
   ```
-- **Dataset Validator**: [eval/verify_dataset.py](file:///home/prime/Desktop/Projects/research-copilot/eval/verify_dataset.py)
+- **Dataset Validator**: [eval/verify_dataset.py](../../eval/verify_dataset.py)
   ```bash
   python -m eval.verify_dataset --dataset eval/datasets/slp.json
   ```
@@ -109,7 +109,7 @@ Tools for evaluating retrieval quality, claim grounding, and ablation performanc
 
 ## 5. Container & Production Entrypoint
 
-- **Container Script**: [scripts/start.sh](file:///home/prime/Desktop/Projects/research-copilot/scripts/start.sh)
+- **Container Script**: [scripts/start.sh](../../scripts/start.sh)
 - **Container Invocation**:
   ```bash
   # Starts UI by default (port 7860)
@@ -123,8 +123,14 @@ Tools for evaluating retrieval quality, claim grounding, and ablation performanc
 
 ## 6. Codebase Map & Maintenance Entrypoint
 
-- **Script**: [scripts/codebase_map.py](file:///home/prime/Desktop/Projects/research-copilot/scripts/codebase_map.py)
-- **Commands**:
+- **Post-Change All-in-One Synchronizer**: [scripts/sync_codebase.py](../../scripts/sync_codebase.py)
+  ```bash
+  make sync
+  # or: uv run python scripts/sync_codebase.py [--full-test]
+  ```
+  Runs linter, executes targeted (or full) tests, regenerates the Mermaid diagram and reverse dependency table in `docs/codebase/dependency-graph.md`, updates `dependency-inventory.json`, and validates doc links.
+
+- **Dependency Map & Blast Radius Analyzer**: [scripts/codebase_map.py](../../scripts/codebase_map.py)
   ```bash
   # Check git changes and report blast radius / recommended tests:
   python scripts/codebase_map.py --incremental   # (or `make map`)

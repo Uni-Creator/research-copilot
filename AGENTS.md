@@ -4,10 +4,10 @@ Persistent instructions for coding agents working within `research-copilot`.
 
 ## Core Navigation Rules
 
-1. **Consult documentation first**: Before exploring the repository, read [docs/codebase/README.md](file:///home/prime/Desktop/Projects/research-copilot/docs/codebase/README.md) and the relevant architecture or dependency documentation.
+1. **Consult documentation first**: Before exploring the repository, read [docs/codebase/README.md](docs/codebase/README.md) and the relevant architecture or dependency documentation.
 2. **Never scan the entire repository**: Do not read the entire codebase by default or dump directories into context.
 3. **Start from task-relevant entry points**: Begin investigation from the specific files, symbols, interfaces, and tests directly implicated in the user's request.
-4. **Inspect dependency impact**: Use [docs/codebase/dependency-graph.md](file:///home/prime/Desktop/Projects/research-copilot/docs/codebase/dependency-graph.md) and [docs/codebase/change-impact.md](file:///home/prime/Desktop/Projects/research-copilot/docs/codebase/change-impact.md) to identify direct dependencies and reverse dependencies before altering public interfaces or shared contracts.
+4. **Inspect dependency impact**: Use [docs/codebase/dependency-graph.md](docs/codebase/dependency-graph.md) and [docs/codebase/change-impact.md](docs/codebase/change-impact.md) to identify direct dependencies and reverse dependencies before altering public interfaces or shared contracts.
 5. **Inspect code on-demand only**: Open source code only when necessary to verify concrete implementation details, resolve ambiguity, identify side effects, or modify behavior.
 6. **Bound exploration outward**: Follow imports, function calls, API contracts, and data flows outward only as far as required to solve the task.
 7. **Do not reread unchanged files**: Avoid rereading unchanged, unrelated files merely to reconstruct peripheral project context.
