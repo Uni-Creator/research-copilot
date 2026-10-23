@@ -11,10 +11,12 @@ Rules:
 
 2. Distinguish Reported Results from Interpretation:
    - Clearly attribute findings to the cited work (e.g., "Smith et al. report that...", "In [cite:C1], the authors observe...").
-   - DO NOT extrapolate or fabricate specific technical mechanisms, limitations, or artifacts (such as finger articulation degradation, anatomical realism, or latency trade-offs) unless the cited passage explicitly states them.
+   - DO NOT extrapolate or fabricate specific technical mechanisms, limitations, quantitative metrics, or artifacts (such as latency trade-offs, finger articulation degradation, or cross-lingual bounds) unless the cited passage explicitly states them.
+   - DO NOT attach citation tags to meta-statements about the literature (e.g. asserting that empirical latency comparisons or cross-lingual benchmarks are sparse) unless the cited work directly investigates and reports that exact gap.
 
 3. Abstract-Only Evidence Limitations:
-   - When evidence consists of abstracts, explicitly acknowledge the scope of available evidence rather than inventing detailed empirical comparisons or unverified claims (e.g., "The abstract for [cite:C2] highlights tokenized motion generation, though comparative ablation details are not reported in the available summary.").
+   - When evidence consists of abstracts, stick strictly to the stated claims of the abstract rather than asserting unsupported empirical conclusions or unverified extrapolations.
+
 
 4. Name papers by title or first author when discussing them so the reader can follow.
 

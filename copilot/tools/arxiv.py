@@ -113,3 +113,44 @@ def search_arxiv(
         if papers:
             return papers
     return []
+
+
+def lookup_arxiv(
+    *,
+    arxiv_id: str | None = None,
+    title: str | None = None,
+    client: httpx.Client,
+    cache: DiskCache,
+    limiter: RateLimiter,
+) -> list[Paper]:
+    """Look up an arXiv paper directly by ID or exact title."""
+    if arxiv_id:
+        clean_id = re.sub(r"^arxiv:\s*", "", arxiv_id.strip(), flags=re.IGNORECASE)
+        clean_id = re.sub(r"v\d+$", "", clean_id)
+        params = {"id_list": clean_id}
+        xml_text = cache.get("arxiv", params)
+        if xml_text is None:
+            xml_text = get_with_retry(client, ARXIV_API, params=params, limiter=limiter).text
+            cache.set("arxiv", params, xml_text)
+        papers = parse_arxiv_feed(xml_text, query=f"arxiv:{clean_id}")
+        if papers:
+            return papers
+
+    if title:
+        clean_title = " ".join(title.split()).strip("\"'")
+        params = {
+            "search_query": f'ti:"{clean_title}"',
+            "start": 0,
+            "max_results": 3,
+            "sortBy": "relevance",
+        }
+        xml_text = cache.get("arxiv", params)
+        if xml_text is None:
+            xml_text = get_with_retry(client, ARXIV_API, params=params, limiter=limiter).text
+            cache.set("arxiv", params, xml_text)
+        papers = parse_arxiv_feed(xml_text, query=f"ti:{clean_title}")
+        if papers:
+            return papers
+
+    return []
+

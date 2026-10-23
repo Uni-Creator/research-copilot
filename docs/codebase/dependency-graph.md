@@ -77,7 +77,12 @@ graph TD
     subgraph eval["eval"]
         eval["eval"]
         eval_metrics["metrics"]
+        eval_pool_judgments["pool_judgments"]
+        eval_retrieval_metrics["retrieval_metrics"]
         eval_run_eval["run_eval"]
+        eval_tests_test_pool_judgments["test_pool_judgments"]
+        eval_tests_test_retrieval_metrics["test_retrieval_metrics"]
+        eval_validate_dataset["validate_dataset"]
         eval_verify_dataset["verify_dataset"]
     end
     subgraph ui["ui"]
@@ -172,12 +177,14 @@ graph TD
     copilot_tools_sources --> copilot_tools_arxiv
     copilot_tools_sources --> copilot_tools_http
     copilot_tools_sources --> copilot_tools_openalex
+    copilot_tools_sources --> eval_metrics
     copilot_tools_vectorstore --> copilot_graph_state
     copilot_tools_vectorstore --> copilot_tools_embeddings
     eval_metrics --> copilot_agents_critic
     eval_metrics --> copilot_graph_state
     eval_metrics --> copilot_tools_chunking
     eval_metrics --> copilot_utils
+    eval_metrics --> eval_retrieval_metrics
     eval_run_eval --> copilot_baseline
     eval_run_eval --> copilot_config
     eval_run_eval --> copilot_graph_state
@@ -185,6 +192,12 @@ graph TD
     eval_run_eval --> copilot_llm
     eval_run_eval --> copilot_tools_sources
     eval_run_eval --> eval_metrics
+    eval_tests_test_pool_judgments --> eval_pool_judgments
+    eval_tests_test_retrieval_metrics --> copilot_agents_critic
+    eval_tests_test_retrieval_metrics --> copilot_config
+    eval_tests_test_retrieval_metrics --> copilot_graph_state
+    eval_tests_test_retrieval_metrics --> eval_metrics
+    eval_tests_test_retrieval_metrics --> eval_retrieval_metrics
     eval_verify_dataset --> copilot_config
     eval_verify_dataset --> copilot_graph_state
     eval_verify_dataset --> copilot_tools_sources
@@ -206,19 +219,19 @@ The table below shows the coupling metrics for key internal modules:
 
 | Module | Fan-In (Reverse Dependencies) | Fan-Out | Reverse Dependencies (Importers) |
 |---|---|---|---|
-| `copilot.graph.state` | 39 | 1 | copilot.agents.critic, copilot.agents.planner, copilot.agents.reader, copilot.agents.retriever, copilot.agents.writer, copilot.baseline, copilot.cli, copilot.graph.routing, copilot.graph.workflow, copilot.llm, copilot.progress, copilot.render, copilot.service, copilot.tools.arxiv, copilot.tools.chunking, copilot.tools.openalex, copilot.tools.papers, copilot.tools.pdf, copilot.tools.ranking, copilot.tools.semantic_scholar, copilot.tools.sources, copilot.tools.vectorstore, eval.metrics, eval.run_eval, eval.verify_dataset, tests.conftest, tests.test_agents, tests.test_dataset, tests.test_eval, tests.test_full_graph, tests.test_graph, tests.test_openalex, tests.test_planner, tests.test_progress, tests.test_reading, tests.test_retrieval_metrics, tests.test_state, tests.test_tools, ui.app |
-| `copilot.config` | 18 | 0 | copilot.agents.critic, copilot.agents.reader, copilot.agents.retriever, copilot.agents.writer, copilot.baseline, copilot.cli, copilot.factory, copilot.graph.routing, copilot.graph.workflow, copilot.service, copilot.tools.sources, eval.run_eval, eval.verify_dataset, tests.test_agents, tests.test_eval, tests.test_full_graph, tests.test_graph, ui.app |
+| `copilot.graph.state` | 40 | 1 | copilot.agents.critic, copilot.agents.planner, copilot.agents.reader, copilot.agents.retriever, copilot.agents.writer, copilot.baseline, copilot.cli, copilot.graph.routing, copilot.graph.workflow, copilot.llm, copilot.progress, copilot.render, copilot.service, copilot.tools.arxiv, copilot.tools.chunking, copilot.tools.openalex, copilot.tools.papers, copilot.tools.pdf, copilot.tools.ranking, copilot.tools.semantic_scholar, copilot.tools.sources, copilot.tools.vectorstore, eval.metrics, eval.run_eval, eval.tests.test_retrieval_metrics, eval.verify_dataset, tests.conftest, tests.test_agents, tests.test_dataset, tests.test_eval, tests.test_full_graph, tests.test_graph, tests.test_openalex, tests.test_planner, tests.test_progress, tests.test_reading, tests.test_retrieval_metrics, tests.test_state, tests.test_tools, ui.app |
+| `copilot.config` | 19 | 0 | copilot.agents.critic, copilot.agents.reader, copilot.agents.retriever, copilot.agents.writer, copilot.baseline, copilot.cli, copilot.factory, copilot.graph.routing, copilot.graph.workflow, copilot.service, copilot.tools.sources, eval.run_eval, eval.tests.test_retrieval_metrics, eval.verify_dataset, tests.test_agents, tests.test_eval, tests.test_full_graph, tests.test_graph, ui.app |
 | `copilot.progress` | 8 | 1 | copilot.agents.critic, copilot.agents.planner, copilot.agents.reader, copilot.agents.retriever, copilot.agents.writer, copilot.cli, tests.test_progress, ui.app |
+| `eval.metrics` | 7 | 5 | copilot.tools.sources, eval.run_eval, eval.tests.test_retrieval_metrics, eval.verify_dataset, tests.test_dataset, tests.test_eval, tests.test_retrieval_metrics |
 | `copilot.tools.chunking` | 7 | 1 | copilot.agents.critic, copilot.agents.reader, copilot.agents.writer, copilot.baseline, copilot.render, eval.metrics, tests.test_reading |
 | `copilot.utils` | 6 | 0 | copilot.graph.state, copilot.tools.arxiv, copilot.tools.embeddings, copilot.tools.openalex, copilot.tools.ranking, eval.metrics |
 | `copilot.tools.vectorstore` | 6 | 2 | copilot.agents.reader, copilot.agents.writer, copilot.factory, copilot.graph.workflow, tests.test_agents, tests.test_reading |
-| `copilot.tools.sources` | 6 | 5 | copilot.agents.retriever, copilot.baseline, copilot.factory, copilot.graph.workflow, eval.run_eval, eval.verify_dataset |
+| `copilot.tools.sources` | 6 | 6 | copilot.agents.retriever, copilot.baseline, copilot.factory, copilot.graph.workflow, eval.run_eval, eval.verify_dataset |
 | `copilot.tools.http` | 6 | 0 | copilot.graph.workflow, copilot.tools.arxiv, copilot.tools.openalex, copilot.tools.pdf, copilot.tools.semantic_scholar, copilot.tools.sources |
 | `copilot.tools.embeddings` | 6 | 1 | copilot.factory, copilot.graph.workflow, copilot.tools.vectorstore, tests.test_agents, tests.test_full_graph, tests.test_reading |
 | `copilot.llm` | 6 | 1 | copilot.agents.critic, copilot.agents.planner, copilot.agents.reader, copilot.agents.writer, copilot.graph.workflow, eval.run_eval |
-| `eval.metrics` | 5 | 4 | eval.run_eval, eval.verify_dataset, tests.test_dataset, tests.test_eval, tests.test_retrieval_metrics |
+| `copilot.agents.critic` | 6 | 6 | copilot.graph.workflow, eval.metrics, eval.tests.test_retrieval_metrics, tests.test_agents, tests.test_eval, tests.test_full_graph |
 | `copilot.graph.workflow` | 5 | 14 | copilot.cli, copilot.factory, eval.run_eval, tests.test_full_graph, tests.test_graph |
-| `copilot.agents.critic` | 5 | 6 | copilot.graph.workflow, eval.metrics, tests.test_agents, tests.test_eval, tests.test_full_graph |
 | `copilot.render` | 4 | 2 | copilot.cli, copilot.service, tests.test_full_graph, ui.app |
 | `copilot.factory` | 4 | 5 | copilot.service, tests.test_factory_ui, tests.test_service, ui.app |
 | `copilot.agents.planner` | 4 | 3 | copilot.graph.workflow, tests.test_full_graph, tests.test_graph, tests.test_planner |
@@ -226,6 +239,7 @@ The table below shows the coupling metrics for key internal modules:
 | `copilot.tools.arxiv` | 3 | 3 | copilot.tools.sources, tests.test_retrieval_metrics, tests.test_tools |
 | `copilot.agents.writer` | 3 | 6 | copilot.baseline, copilot.graph.workflow, tests.test_agents |
 | `copilot.agents.reader` | 3 | 6 | copilot.graph.workflow, tests.test_agents, tests.test_full_graph |
+| `eval.retrieval_metrics` | 2 | 0 | eval.metrics, eval.tests.test_retrieval_metrics |
 | `copilot.tools.pdf` | 2 | 2 | copilot.graph.workflow, tests.test_reading |
 | `copilot.tools.papers` | 2 | 1 | copilot.agents.retriever, tests.test_state |
 | `copilot.tools.openalex` | 2 | 3 | copilot.tools.sources, tests.test_openalex |
@@ -234,10 +248,14 @@ The table below shows the coupling metrics for key internal modules:
 | `copilot.agents.retriever` | 2 | 6 | copilot.baseline, copilot.graph.workflow |
 | `eval.verify_dataset` | 1 | 4 | tests.test_verify_dataset |
 | `eval.run_eval` | 1 | 7 | tests.test_eval |
+| `eval.pool_judgments` | 1 | 0 | eval.tests.test_pool_judgments |
 | `copilot.tools.semantic_scholar` | 1 | 2 | tests.test_tools |
 | `copilot.service` | 1 | 4 | tests.test_service |
 | `ui.app` | 0 | 5 | (None - runtime entry point) |
 | `ui` | 0 | 0 | (None - runtime entry point) |
+| `eval.validate_dataset` | 0 | 0 | (None - runtime entry point) |
+| `eval.tests.test_retrieval_metrics` | 0 | 5 | (None - runtime entry point) |
+| `eval.tests.test_pool_judgments` | 0 | 1 | (None - runtime entry point) |
 | `eval` | 0 | 0 | (None - runtime entry point) |
 | `copilot.tools` | 0 | 0 | (None - runtime entry point) |
 | `copilot.graph` | 0 | 0 | (None - runtime entry point) |

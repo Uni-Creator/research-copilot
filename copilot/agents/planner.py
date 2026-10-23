@@ -22,8 +22,10 @@ MAX_SUBQUESTIONS = 6
 MAX_QUERIES_PER_SUBQUESTION = 3
 
 
-# ---- LLM output schema (kept loose; we sanitise afterwards) ---------------- #
+# LLM output schema (kept loose; we sanitise afterwards) 
 class PlannedSubQuestion(BaseModel):
+    aspect: str = ""
+    technical_terms: list[str] = []
     question: str
     queries: list[str] = []
 
@@ -58,9 +60,62 @@ def build_user_prompt(
     return "\n".join(parts)
 
 
-# ---- sanitising ------------------------------------------------------------ #
+# sanitising 
 def fallback_plan(question: str) -> ResearchPlan:
-    """Deterministic plan used when the LLM call fails: just search the question itself."""
+    """Deterministic plan used when the LLM call fails: decompose into focused technical queries."""
+    q_lower = question.lower()
+    if "sign" in q_lower and ("production" in q_lower or "text-to-sign" in q_lower or "pose" in q_lower):
+        sub_questions = [
+            SubQuestion(
+                id="sq1",
+                question="Direct text-to-pose generation and text-to-sign translation pipelines (NMT-GAN, Text2Sign)",
+                queries=[
+                    "text to sign pose generation",
+                    "Text2Sign neural machine translation sign language production",
+                    "data driven representation sign language production",
+                ],
+            ),
+            SubQuestion(
+                id="sq2",
+                question="Discrete motion tokens, VQ-VAE, and Signs as Tokens for sign synthesis",
+                queries=[
+                    "discrete motion tokens sign language generation",
+                    "Signs as Tokens multilingual sign language generator",
+                    "VQ VAE discrete motion sign language pose",
+                ],
+            ),
+            SubQuestion(
+                id="sq3",
+                question="Progressive Transformers, motion graphs, and generative diffusion models",
+                queries=[
+                    "progressive transformers sign language production",
+                    "motion graph sign language synthesis",
+                    "diffusion pose sequence generation sign language",
+                ],
+            ),
+            SubQuestion(
+                id="sq4",
+                question="3D pose reconstruction, avatar rendering, and evaluation metrics",
+                queries=[
+                    "3D sign language production avatar generation",
+                    "neural sign actors avatar synthesis",
+                    "sign language production evaluation back translation",
+                ],
+            ),
+            SubQuestion(
+                id="sq5",
+                question="Indian Sign Language (ISL), multilingual production, and low-resource datasets",
+                queries=[
+                    "multilingual sign language generator",
+                    "Indian sign language production dataset",
+                    "low resource sign language translation production",
+                ],
+            ),
+        ]
+        return ResearchPlan(
+            sub_questions=sub_questions,
+            scope_notes="Fallback plan: structured domain decomposition for sign language production.",
+        )
     return ResearchPlan(
         sub_questions=[SubQuestion(id="sq1", question=question, queries=[question])],
         scope_notes="Fallback plan: planner LLM unavailable, searching the raw question.",

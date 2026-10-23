@@ -107,6 +107,28 @@ def make_retriever_node(
             for rank, paper in enumerate(results):
                 rrf[index.add(paper)] += 1.0 / (RRF_K + rank + 1)
 
+        # Separate known-item lookup step for topic's must_cite entries
+        must_cite_entries = list(filters.must_cite or state.get("must_cite", []))
+        if must_cite_entries:
+            from copilot.tools.sources import lookup_known_item
+
+            n_found_known = 0
+            for entry in must_cite_entries:
+                try:
+                    found = lookup_known_item(entry, settings)
+                    for rank, paper in enumerate(found):
+                        pos = index.add(paper)
+                        rrf[pos] += 1.0 / (RRF_K + rank + 1)
+                        n_found_known += 1
+                except Exception as exc:
+                    errors.append(f"retriever: known-item lookup failed for {entry.get('title')}: {exc!r}")
+            if n_found_known:
+                trace(
+                    f"known-item lookup: retrieved {n_found_known} foundational paper(s) for topic",
+                    "search",
+                    n_known=n_found_known,
+                )
+
         fresh = [(i, p) for i, p in enumerate(index.papers) if i not in preloaded]
         candidates = [(i, p) for i, p in fresh if _in_range(p, filters)]
         dropped_year = len(fresh) - len(candidates)
@@ -123,13 +145,22 @@ def make_retriever_node(
             weights=weights,
         )
 
+        import os
+        # Single resolved max_papers cap: environment variable takes precedence when set
+        resolved_cap = (
+            settings.max_papers
+            if os.environ.get("COPILOT_MAX_PAPERS")
+            else (filters.max_papers or settings.max_papers)
+        )
+
         if old_shortlist:  # follow-up pass: grow, don't reshuffle
             fresh_ids = [p.paper_id for p in ranked[: settings.extra_per_pass]]
             shortlist = old_shortlist + [pid for pid in fresh_ids if pid not in old_shortlist]
             new_ids = [pid for pid in fresh_ids if pid not in old_shortlist]
         else:
-            shortlist = [p.paper_id for p in ranked[: filters.max_papers or settings.max_papers]]
+            shortlist = [p.paper_id for p in ranked[:resolved_cap]]
             new_ids = shortlist
+
 
         by_id = {p.paper_id: p for p in ranked}
         if not shortlist:

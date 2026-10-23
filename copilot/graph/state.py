@@ -22,9 +22,7 @@ from pydantic import BaseModel, Field, model_validator
 from copilot.utils import normalize_title, short_hash
 
 
-# --------------------------------------------------------------------------- #
 # Papers
-# --------------------------------------------------------------------------- #
 def compute_paper_id(arxiv_id: str | None, doi: str | None, s2_id: str | None, title: str) -> str:
     """Canonical id: arXiv > DOI > Semantic Scholar > hash of the normalised title."""
     if arxiv_id:
@@ -98,13 +96,12 @@ class Paper(BaseModel):
         return m
 
 
-# --------------------------------------------------------------------------- #
 # Planner output
-# --------------------------------------------------------------------------- #
 class SearchFilters(BaseModel):
     year_from: int | None = None
     year_to: int | None = None
     max_papers: int | None = None
+    must_cite: list[dict[str, Any]] = []
 
 
 class SubQuestion(BaseModel):
@@ -129,9 +126,7 @@ class ResearchPlan(BaseModel):
         return out
 
 
-# --------------------------------------------------------------------------- #
 # Later-stage contracts (Reader / Writer / Critic) -- nodes arrive in Weeks 2-4
-# --------------------------------------------------------------------------- #
 class PaperNotes(BaseModel):
     paper_id: str
     problem: str = ""
@@ -175,9 +170,7 @@ class CriticReport(BaseModel):
     support_rate: float | None = None
 
 
-# --------------------------------------------------------------------------- #
 # Bookkeeping
-# --------------------------------------------------------------------------- #
 class Usage(BaseModel):
     llm_calls: int = 0
     input_tokens: int = 0
@@ -211,9 +204,7 @@ def make_event(agent: str, message: str, *, kind: str = "info", **data: Any) -> 
     return TraceEvent(agent=agent, message=message, kind=kind, data=data)
 
 
-# --------------------------------------------------------------------------- #
 # Reducers
-# --------------------------------------------------------------------------- #
 def merge_papers(left: dict[str, Paper] | None, right: dict[str, Paper] | None) -> dict[str, Paper]:
     """Merge paper dicts by id; duplicate ids are fused with ``Paper.merged_with``."""
     out = dict(left or {})
@@ -231,9 +222,7 @@ def merge_usage(left: Usage | None, right: Usage | None) -> Usage:
     return (left or Usage()) + (right or Usage())
 
 
-# --------------------------------------------------------------------------- #
 # Graph state
-# --------------------------------------------------------------------------- #
 class CopilotState(TypedDict, total=False):
     # inputs
     question: str

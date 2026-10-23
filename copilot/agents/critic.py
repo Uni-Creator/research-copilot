@@ -113,6 +113,34 @@ def verify_claims(
     return [c for c in checks if c is not None], usage
 
 
+def remove_unsupported_claims(markdown: str, checks: list[ClaimCheck]) -> str:
+    """Remove sentences containing claims verified as unsupported before final report emission."""
+    unsupported_texts = {
+        re.sub(r"\s+", " ", c.claim).strip().lower()
+        for c in checks
+        if c.verdict == "unsupported" and c.claim.strip()
+    }
+    if not unsupported_texts:
+        return markdown
+
+    lines = []
+    for line in markdown.splitlines():
+        line_clean = line.strip().lstrip("-*• ").strip()
+        if not line_clean or line_clean.startswith(("#", "|")):
+            lines.append(line)
+            continue
+        kept = []
+        for sent in _SENT.split(line):
+            text = re.sub(r"\s+([.,;:!?])", r"\1", _CITE.sub("", sent)).strip()
+            norm_text = re.sub(r"\s+", " ", text).strip().lower()
+            if norm_text in unsupported_texts or any(u in norm_text for u in unsupported_texts if len(u) > 15):
+                continue
+            kept.append(sent)
+        if kept:
+            lines.append(" ".join(kept).rstrip())
+    return "\n".join(lines).strip()
+
+
 def make_critic_node(llm: Any, store, settings: Settings) -> Callable[[CopilotState], dict]:
     def critic_node(state: CopilotState) -> dict:
         trace = Tracer("critic")
@@ -197,6 +225,18 @@ def make_critic_node(llm: Any, store, settings: Settings) -> Callable[[CopilotSt
                 why = f"claims check out; {limit} reached, so coverage was not re-checked"
             else:
                 why = "quality bar met"
+
+        final_draft = draft
+        if action == "pass" and any(c.verdict == "unsupported" for c in checks):
+            cleaned_md = remove_unsupported_claims(draft.markdown, checks)
+            if cleaned_md != draft.markdown:
+                new_cids = [i.strip() for i in _CITE.findall(cleaned_md)]
+                final_draft = draft.model_copy(update={
+                    "markdown": cleaned_md,
+                    "cited_chunk_ids": list(dict.fromkeys(new_cids)),
+                })
+                trace("removed unsupported claims before emitting final report", "check")
+
         report = CriticReport(
             passed=(rate is not None and not low_support and not missing),
             action=action,
@@ -206,6 +246,7 @@ def make_critic_node(llm: Any, store, settings: Settings) -> Callable[[CopilotSt
         )
         trace(f"decision: {action} \u2014 {why}", "decision", action=action, reason=why, support_rate=rate)
         return {
+            "draft": final_draft,
             "critique": report,
             "iteration": iteration + 1,
             "usage": usage,
@@ -213,3 +254,4 @@ def make_critic_node(llm: Any, store, settings: Settings) -> Callable[[CopilotSt
         }
 
     return critic_node
+

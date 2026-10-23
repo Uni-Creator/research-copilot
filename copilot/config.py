@@ -13,8 +13,20 @@ def _int(name: str, default: int) -> int:
     return int(os.environ.get(name, default))
 
 
+def _positive_int(name: str, default: int) -> int:
+    val = os.environ.get(name)
+    if val is None or not str(val).strip():
+        return default
+    try:
+        parsed = int(str(val).strip())
+        return parsed if parsed > 0 else default
+    except ValueError:
+        return default
+
+
 def _float(name: str, default: float) -> float:
     return float(os.environ.get(name, default))
+
 
 
 @dataclass(frozen=True)

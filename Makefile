@@ -1,14 +1,14 @@
 .PHONY: install test lint ui api eval docker map map-check sync
 install:
-	pip install -r requirements.txt -r requirements-app.txt
+	uv pip install -r requirements.txt -r requirements-app.txt
 test:
-	pytest -q
+	uv run pytest -q
 lint:
-	ruff check .
+	uv run ruff check .
 ui:
-	streamlit run ui/app.py
+	uv run python -m streamlit run ui/app.py
 api:
-	uvicorn copilot.service:create_app --factory --reload --port 8000
+	uv run uvicorn copilot.service:create_app --factory --reload --port 8000
 eval:
 	uv run python -m eval.run_eval --topics eval/datasets/slp.json --out eval/results
 docker:

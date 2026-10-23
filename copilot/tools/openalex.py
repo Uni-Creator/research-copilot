@@ -216,3 +216,64 @@ def search_openalex(
     records = data.get("results") or []
     papers = (parse_openalex_work(record, query) for record in records)
     return [paper for paper in papers if paper is not None]
+
+
+def lookup_openalex(
+    *,
+    doi: str | None = None,
+    arxiv_id: str | None = None,
+    title: str | None = None,
+    client: httpx.Client,
+    cache: DiskCache,
+    limiter: RateLimiter,
+    api_key: str | None = None,
+    mailto: str | None = None,
+) -> list[Paper]:
+    """Look up an OpenAlex paper directly by DOI, arXiv ID, or title."""
+    filters = []
+    query_label = ""
+    if doi:
+        clean_doi = re.sub(r"^https?://(dx\.)?doi\.org/", "", doi.strip(), flags=re.IGNORECASE)
+        clean_doi = clean_doi.removeprefix("doi:").strip()
+        filters.append(f"doi:https://doi.org/{clean_doi}")
+        query_label = f"doi:{clean_doi}"
+    elif arxiv_id:
+        clean_arxiv = re.sub(r"^arxiv:\s*", "", arxiv_id.strip(), flags=re.IGNORECASE)
+        clean_arxiv = re.sub(r"v\d+$", "", clean_arxiv)
+        filters.append(f"ids.arxiv:https://arxiv.org/abs/{clean_arxiv}")
+        query_label = f"arxiv:{clean_arxiv}"
+
+    if filters:
+        params: dict[str, Any] = {
+            "filter": ",".join(filters),
+            "per_page": 5,
+            "select": OPENALEX_FIELDS,
+        }
+        if mailto:
+            params["mailto"] = mailto
+        data = cache.get("openalex", params)
+        if data is None:
+            request_params = dict(params)
+            if api_key:
+                request_params["api_key"] = api_key
+            response = get_with_retry(client, OPENALEX_WORKS, params=request_params, limiter=limiter)
+            data = response.json()
+            cache.set("openalex", params, data)
+        records = data.get("results") or []
+        papers = [p for r in records if (p := parse_openalex_work(r, query_label)) is not None]
+        if papers:
+            return papers
+
+    if title:
+        return search_openalex(
+            title,
+            SearchFilters(),
+            limit=5,
+            client=client,
+            cache=cache,
+            limiter=limiter,
+            api_key=api_key,
+            mailto=mailto,
+        )
+    return []
+

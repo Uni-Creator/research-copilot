@@ -1,4 +1,4 @@
-"""Check an eval dataset against arXiv + Semantic Scholar before you trust it.
+"""Check an eval dataset against the configured paper sources before you trust it.
 
     python -m eval.verify_dataset                          # dry run: report only
     python -m eval.verify_dataset --promote --write        # fill IDs, move verified candidates into must_cite
@@ -33,10 +33,11 @@ class Resolution:
 
 
 def resolve(entry: dict, sources: dict[str, SearchFn], limit: int = 5) -> Resolution:
-    """Find the paper an entry refers to. Semantic Scholar first: better at exact-title lookup."""
+    """Find the paper an entry refers to, preferring OpenAlex/arXiv when configured."""
     hints: list[str] = []
     failures = 0
-    for _, fn in sorted(sources.items(), key=lambda kv: kv[0] != "semantic_scholar"):
+    source_priority = {"openalex": 0, "arxiv": 1, "semantic_scholar": 2}
+    for _, fn in sorted(sources.items(), key=lambda kv: source_priority.get(kv[0], 10)):
         try:
             results = fn(entry["title"], SearchFilters(), limit)
         except Exception:

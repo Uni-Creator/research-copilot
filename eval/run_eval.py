@@ -41,11 +41,18 @@ BASE_COLUMNS = [
     "coverage_pool",
     "coverage_shortlist",
     "coverage_cited",
-    "mrr",
-    "average_precision",
+    "judged_precision_at_5",
+    "judged_recall_at_5",
+    "judged_ndcg_at_5",
+    "judgment_coverage_at_5",
     "mean_subquestion_coverage",
     "support_rate",
+    "n_papers_retrieved",
+    "n_papers_shortlisted",
     "n_claims",
+    "n_claim_judge_errors",
+    "mrr",
+    "average_precision",
     "n_papers_cited",
     "stripped_citations",
     "tokens",
@@ -136,6 +143,35 @@ def _field(value: Any, *names: str) -> Any:
         except (AttributeError, TypeError):
             pass
     return None
+
+
+def _jsonable(value: Any) -> Any:
+    """Recursively convert state/model objects into JSON-safe diagnostics."""
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, Mapping):
+        return {str(k): _jsonable(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_jsonable(v) for v in value]
+    if is_dataclass(value) and not isinstance(value, type):
+        try:
+            return _jsonable(asdict(value))
+        except Exception:
+            pass
+    model_dump = getattr(value, "model_dump", None)
+    if callable(model_dump):
+        try:
+            return _jsonable(model_dump())
+        except Exception:
+            pass
+    try:
+        return _jsonable(vars(value))
+    except (TypeError, AttributeError):
+        return repr(value)[:2000]
+
+
+def _safe_filename(value: str) -> str:
+    return "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in value)[:120]
 
 
 def _paper_line(paper: Any) -> str:
@@ -292,6 +328,7 @@ def evaluate(
     ks: tuple[int, ...] = DEFAULT_KS,
     # backward-compat alias for tests that call evaluate(..., log=fn)
     log: Callable[..., None] | None = None,
+    artifact_dir: Path | None = None,
     **kwargs: Any,
 ) -> list[dict[str, Any]]:
     """Run each variant, recording timings, diagnostics, and failures."""
@@ -328,7 +365,11 @@ def evaluate(
     completed = 0
 
     for _topic_index, topic in enumerate(topics, start=1):
-        filters = SearchFilters(**topic.get("filters", {}))
+        filter_dict = dict(topic.get("filters", {}))
+        filter_dict["max_papers"] = settings.max_papers
+        if "must_cite" in topic and "must_cite" not in filter_dict:
+            filter_dict["must_cite"] = topic["must_cite"]
+        filters = SearchFilters(**filter_dict)
 
         for name, runner in variants.items():
             completed += 1
@@ -363,7 +404,7 @@ def evaluate(
                 runner_seconds = time.perf_counter() - runner_started
 
                 logger.info("Runner completed in %.1fs", runner_seconds)
-                log_state_diagnostics(logger, state)
+                log_state_diagnostics(logger, state, max_papers=settings.max_papers)
 
                 logger.info("Starting metric evaluation")
                 evaluation_started = time.perf_counter()
@@ -377,11 +418,48 @@ def evaluate(
                 )
                 evaluation_seconds = time.perf_counter() - evaluation_started
 
-                # Preserve the evaluator's "error" field. Do not overwrite it.
-                if isinstance(metrics, Mapping):
-                    row.update(metrics)
-                else:
+                # Save the detailed audit trail separately so aggregate results stay compact.
+                if not isinstance(metrics, Mapping):
                     raise TypeError(f"evaluate_run returned {type(metrics).__name__}, expected a mapping")
+                metrics_payload = dict(metrics)
+                claim_checks = metrics_payload.pop("claim_checks", [])
+                if artifact_dir is not None:
+                    artifact_dir.mkdir(parents=True, exist_ok=True)
+                    evidence: dict[str, dict[str, Any]] = {}
+                    paper_map = state.get("papers", {}) if isinstance(state, Mapping) else {}
+                    for check in claim_checks:
+                        for cid in check.get("chunk_ids", []):
+                            if cid in evidence:
+                                continue
+                            try:
+                                text = chunk_text(cid)
+                            except Exception:
+                                text = None
+                            basis = "retrieved_text_chunk" if text else "missing"
+                            if not text:
+                                try:
+                                    pid = __import__("copilot.tools.chunking", fromlist=["paper_id_of"]).paper_id_of(cid)
+                                    paper = paper_map.get(pid)
+                                    text = getattr(paper, "abstract", None) if paper else None
+                                    if text:
+                                        basis = "abstract_fallback"
+                                except Exception:
+                                    text = None
+                            evidence[cid] = {"basis": basis, "text": text}
+                    artifact_path = artifact_dir / f"{_safe_filename(topic_id)}__{_safe_filename(name)}.json"
+                    artifact = {
+                        "schema_version": 1,
+                        "topic": {key: topic.get(key) for key in ("id", "question", "filters", "must_cite", "relevance_judgments", "subtopics") if key in topic},
+                        "variant": name,
+                        "metrics": metrics_payload,
+                        "claim_checks": claim_checks,
+                        "evidence": evidence,
+                        "state": _jsonable(state),
+                    }
+                    artifact_path.write_text(json.dumps(artifact, indent=2, ensure_ascii=False, default=str) + "\n", encoding="utf-8")
+                    row["artifact_path"] = str(artifact_path)
+                # Preserve the evaluator's "error" field. Do not overwrite it.
+                row.update(metrics_payload)
 
                 logger.info(
                     "Metric evaluation completed in %.1fs",
@@ -564,6 +642,21 @@ def main(argv: list[str] | None = None) -> int:
         logger.info("Embedder override: %s", args.embedder or "default")
         logger.info("Output directory: %s", out.resolve())
 
+        metadata = {
+            "schema_version": 1,
+            "dataset_name": dataset.get("name", topics_path.name),
+            "dataset_version": dataset.get("version"),
+            "topics_file": str(topics_path),
+            "topics_selected": [topic.get("id") for topic in topics],
+            "variants": names,
+            "fulltext_enabled": not args.no_fulltext,
+            "embedder_override": args.embedder,
+            "judge_model": args.judge_model or settings.critic_model,
+            "resolved_max_papers": settings.max_papers,
+            "ks": tuple(int(k) for k in (args.ks or "").split(",") if k.strip()) or DEFAULT_KS,
+        }
+        (out / "metadata.json").write_text(json.dumps(metadata, indent=2, ensure_ascii=False, default=str) + "\n", encoding="utf-8")
+
         sources = build_sources(settings)
         judge = get_llm(
             args.judge_model or settings.critic_model,
@@ -597,6 +690,7 @@ def main(argv: list[str] | None = None) -> int:
             logger,
             on_result=checkpoint,
             ks=tuple(int(k) for k in (args.ks or "").split(",") if k.strip()) or DEFAULT_KS,
+            artifact_dir=out / "artifacts",
         )
 
         _ks = tuple(int(k) for k in (args.ks or "").split(",") if k.strip()) or DEFAULT_KS

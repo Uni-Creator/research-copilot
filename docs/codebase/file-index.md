@@ -75,5 +75,10 @@ This index catalogs key source files across `research-copilot`, detailing their 
 | File | Responsibilities | Key Classes & Functions | Associated Tests |
 |---|---|---|---|
 | [eval/metrics.py](../../eval/metrics.py) | IR and verification metrics: Coverage, P@k, R@k, nDCG@k, MRR, MAP, Support Rate | `evaluate_run`, `match_paper`, `precision_at_k`, `recall_at_k`, `ndcg_at_k`, `mrr`, `subquestion_coverage` | [test_eval.py](../../tests/test_eval.py), [test_retrieval_metrics.py](../../tests/test_retrieval_metrics.py) |
+| [eval/pool_judgments.py](../../eval/pool_judgments.py) | Pools per-topic paper candidates across variants for human relevance judging; leaves labels blank | `pool_judgments`, `main` | [test_pool_judgments.py](../../eval/tests/test_pool_judgments.py) |
+| [eval/retrieval_metrics.py](../../eval/retrieval_metrics.py) | Graded relevance metrics (judged P@k, R@k, nDCG@k) and aspect coverage from explicit relevance judgments | `graded_relevance_metrics`, `judged_aspect_coverage`, `normalize_arxiv`, `normalize_doi` | [test_retrieval_metrics.py](../../eval/tests/test_retrieval_metrics.py) |
 | [eval/run_eval.py](../../eval/run_eval.py) | Benchmark execution harness running ablations across evaluation topics | `main`, `evaluate`, `make_variants`, `results_table` | [test_eval.py](../../tests/test_eval.py) |
+| [eval/validate_dataset.py](../../eval/validate_dataset.py) | Schema validation for eval dataset JSON files (must_cite fields, required keys) | `validate_dataset`, `main` | — |
 | [eval/verify_dataset.py](../../eval/verify_dataset.py) | Validates benchmark datasets against live academic APIs | `verify_dataset`, `resolve`, `format_report` | [test_verify_dataset.py](../../tests/test_verify_dataset.py) |
+| [eval/tests/test_pool_judgments.py](../../eval/tests/test_pool_judgments.py) | Unit tests for pool judgment pooling logic | — | — |
+| [eval/tests/test_retrieval_metrics.py](../../eval/tests/test_retrieval_metrics.py) | Unit tests for retrieval metrics, identifier normalization, and env resolution | — | — |

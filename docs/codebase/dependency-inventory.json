@@ -1,6 +1,6 @@
 {
   "root": "/home/prime/Desktop/Projects/research-copilot",
-  "total_modules": 55,
+  "total_modules": 60,
   "cycles": [],
   "modules": {
     "copilot": {
@@ -48,6 +48,7 @@
       "reverse_dependencies": [
         "copilot.graph.workflow",
         "eval.metrics",
+        "eval.tests.test_retrieval_metrics",
         "tests.test_agents",
         "tests.test_eval",
         "tests.test_full_graph"
@@ -61,6 +62,7 @@
         "split_claims",
         "support_rate",
         "verify_claims",
+        "remove_unsupported_claims",
         "make_critic_node"
       ],
       "associated_tests": [
@@ -159,6 +161,7 @@
         "__future__",
         "collections",
         "concurrent.futures",
+        "os",
         "time",
         "typing"
       ],
@@ -289,6 +292,7 @@
         "copilot.service",
         "copilot.tools.sources",
         "eval.run_eval",
+        "eval.tests.test_retrieval_metrics",
         "eval.verify_dataset",
         "tests.test_agents",
         "tests.test_eval",
@@ -415,6 +419,7 @@
         "copilot.tools.vectorstore",
         "eval.metrics",
         "eval.run_eval",
+        "eval.tests.test_retrieval_metrics",
         "eval.verify_dataset",
         "tests.conftest",
         "tests.test_agents",
@@ -704,7 +709,8 @@
       "public_functions": [
         "build_arxiv_query",
         "parse_arxiv_feed",
-        "search_arxiv"
+        "search_arxiv",
+        "lookup_arxiv"
       ],
       "associated_tests": [
         "tests/test_retrieval_metrics.py",
@@ -839,7 +845,8 @@
         "reconstruct_abstract",
         "clean_search_query",
         "parse_openalex_work",
-        "search_openalex"
+        "search_openalex",
+        "lookup_openalex"
       ],
       "associated_tests": [
         "tests/test_openalex.py"
@@ -962,7 +969,8 @@
         "copilot.graph.state",
         "copilot.tools.arxiv",
         "copilot.tools.http",
-        "copilot.tools.openalex"
+        "copilot.tools.openalex",
+        "eval.metrics"
       ],
       "direct_external_imports": [
         "__future__",
@@ -980,7 +988,8 @@
       ],
       "public_classes": [],
       "public_functions": [
-        "build_sources"
+        "build_sources",
+        "lookup_known_item"
       ],
       "associated_tests": []
     },
@@ -1056,20 +1065,25 @@
     "eval.metrics": {
       "file_path": "eval/metrics.py",
       "module_name": "eval.metrics",
-      "docstring": "Evaluation metrics for a finished run.",
+      "docstring": "Evaluation metrics for Research Copilot.",
       "direct_internal_imports": [
         "copilot.agents.critic",
         "copilot.graph.state",
         "copilot.tools.chunking",
-        "copilot.utils"
+        "copilot.utils",
+        "eval.retrieval_metrics"
       ],
       "direct_external_imports": [
         "__future__",
         "math",
-        "typing"
+        "re",
+        "typing",
+        "unicodedata"
       ],
       "reverse_dependencies": [
+        "copilot.tools.sources",
         "eval.run_eval",
+        "eval.tests.test_retrieval_metrics",
         "eval.verify_dataset",
         "tests.test_dataset",
         "tests.test_eval",
@@ -1077,14 +1091,15 @@
       ],
       "public_classes": [],
       "public_functions": [
+        "normalize_title",
         "match_paper",
         "coverage",
+        "subquestion_coverage",
         "precision_at_k",
         "recall_at_k",
         "ndcg_at_k",
         "mrr",
         "average_precision",
-        "subquestion_coverage",
         "evaluate_run"
       ],
       "associated_tests": [
@@ -1092,6 +1107,57 @@
         "tests/test_eval.py",
         "tests/test_retrieval_metrics.py"
       ]
+    },
+    "eval.pool_judgments": {
+      "file_path": "eval/pool_judgments.py",
+      "module_name": "eval.pool_judgments",
+      "docstring": "Pool candidates from saved run artifacts to create a human relevance-labeling file.",
+      "direct_internal_imports": [],
+      "direct_external_imports": [
+        "__future__",
+        "argparse",
+        "json",
+        "pathlib",
+        "re",
+        "typing"
+      ],
+      "reverse_dependencies": [
+        "eval.tests.test_pool_judgments"
+      ],
+      "public_classes": [],
+      "public_functions": [
+        "build_annotation_pool",
+        "main"
+      ],
+      "associated_tests": []
+    },
+    "eval.retrieval_metrics": {
+      "file_path": "eval/retrieval_metrics.py",
+      "module_name": "eval.retrieval_metrics",
+      "docstring": "Pure-Python relevance metrics for Research Copilot evaluation.",
+      "direct_internal_imports": [],
+      "direct_external_imports": [
+        "__future__",
+        "collections.abc",
+        "math",
+        "re",
+        "typing",
+        "urllib.parse"
+      ],
+      "reverse_dependencies": [
+        "eval.metrics",
+        "eval.tests.test_retrieval_metrics"
+      ],
+      "public_classes": [],
+      "public_functions": [
+        "normalize_title",
+        "normalize_doi",
+        "normalize_arxiv",
+        "paper_matches_entry",
+        "graded_relevance_metrics",
+        "judged_aspect_coverage"
+      ],
+      "associated_tests": []
     },
     "eval.run_eval": {
       "file_path": "eval/run_eval.py",
@@ -1137,10 +1203,72 @@
         "tests/test_eval.py"
       ]
     },
+    "eval.tests.test_pool_judgments": {
+      "file_path": "eval/tests/test_pool_judgments.py",
+      "module_name": "eval.tests.test_pool_judgments",
+      "docstring": "",
+      "direct_internal_imports": [
+        "eval.pool_judgments"
+      ],
+      "direct_external_imports": [
+        "json",
+        "pathlib",
+        "tempfile",
+        "unittest"
+      ],
+      "reverse_dependencies": [],
+      "public_classes": [
+        "PoolJudgmentTests"
+      ],
+      "public_functions": [],
+      "associated_tests": []
+    },
+    "eval.tests.test_retrieval_metrics": {
+      "file_path": "eval/tests/test_retrieval_metrics.py",
+      "module_name": "eval.tests.test_retrieval_metrics",
+      "docstring": "",
+      "direct_internal_imports": [
+        "copilot.agents.critic",
+        "copilot.config",
+        "copilot.graph.state",
+        "eval.metrics",
+        "eval.retrieval_metrics"
+      ],
+      "direct_external_imports": [
+        "os",
+        "unittest"
+      ],
+      "reverse_dependencies": [],
+      "public_classes": [
+        "RetrievalMetricsTests"
+      ],
+      "public_functions": [],
+      "associated_tests": []
+    },
+    "eval.validate_dataset": {
+      "file_path": "eval/validate_dataset.py",
+      "module_name": "eval.validate_dataset",
+      "docstring": "Validate the offline structure of a Research Copilot evaluation dataset.",
+      "direct_internal_imports": [],
+      "direct_external_imports": [
+        "__future__",
+        "argparse",
+        "json",
+        "pathlib",
+        "typing"
+      ],
+      "reverse_dependencies": [],
+      "public_classes": [],
+      "public_functions": [
+        "validate_dataset",
+        "main"
+      ],
+      "associated_tests": []
+    },
     "eval.verify_dataset": {
       "file_path": "eval/verify_dataset.py",
       "module_name": "eval.verify_dataset",
-      "docstring": "Check an eval dataset against arXiv + Semantic Scholar before you trust it.",
+      "docstring": "Check an eval dataset against the configured paper sources before you trust it.",
       "direct_internal_imports": [
         "copilot.config",
         "copilot.graph.state",

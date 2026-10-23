@@ -1,157 +1,169 @@
-"""Evaluation metrics for a finished run.
+"""Evaluation metrics for Research Copilot.
 
-Known-item / ranked-retrieval metrics (per-topic, over the candidate pool)
-precision_at_k    : share of top-k retrieved papers that are must-cites
-recall_at_k       : share of must-cites appearing in the top-k retrieved papers
-ndcg_at_k         : normalised discounted cumulative gain  (graded relevance: 1 if must-cite)
-mrr               : mean reciprocal rank of the first must-cite in the pool ranking
-average_precision : area under the precision-recall curve
-
-Pipeline-stage coverage metrics
-coverage_pool      : recall of must-cite papers among ALL retrieved papers
-coverage_shortlist : recall of must-cite papers among papers the system chose to read
-coverage_cited     : recall of must-cite papers among papers the report actually cites
-
-Topic-coverage metric
-subquestion_coverage : dict[sq_id -> fraction of that sub-question's keywords found in
-                       any shortlisted paper's title+abstract]
-
-Citation-quality metric
-support_rate : judge-verified share of cited claims backed by the cited text
-               (supported=1, partial=0.5, unsupported=0)
-stripped_citations : fabricated citations the Writer produced and the pipeline removed
+Known-item metrics answer whether a curated must-cite list was retrieved.
+Graded relevance metrics answer a different question and are available only when
+explicit relevance_judgments are supplied in the dataset. Subquestion coverage
+is a lexical overlap proxy, not a semantic relevance judgment. Claim support is
+LLM-judged against the cited passage and should be spot-checked by humans.
 """
-
 from __future__ import annotations
 
 import math
+import re
+import unicodedata
 from typing import Any, Callable
 
 from copilot.agents.critic import split_claims, support_rate, verify_claims
 from copilot.graph.state import CopilotState, Paper, ResearchPlan
 from copilot.tools.chunking import paper_id_of
-from copilot.utils import normalize_title, tokenize
+from copilot.utils import tokenize
+from eval.retrieval_metrics import (
+    graded_relevance_metrics,
+    judged_aspect_coverage,
+    normalize_arxiv,
+    normalize_doi,
+)
 
 TITLE_JACCARD = 0.8
 DEFAULT_KS = (5, 10, 20)
 
 
-# Paper identity matching
+def normalize_title(title: str | None) -> str:
+    """Normalize a paper title for robust comparison."""
+    if not title:
+        return ""
+
+    title = unicodedata.normalize("NFKC", title).casefold()
+    title = re.sub(r"[^\w\s]", " ", title)
+    return " ".join(title.split())
+
+
 def match_paper(must: dict, paper: Paper) -> bool:
-    """A must-cite entry ({title, arxiv_id?, doi?}) matches by id, else by title similarity."""
-    if must.get("arxiv_id") and must["arxiv_id"] == paper.arxiv_id:
+    """Match a known-item entry by normalized arXiv/DOI first, then title."""
+    must_arxiv = normalize_arxiv(must.get("arxiv_id") or must.get("arxiv"))
+    paper_arxiv = normalize_arxiv(getattr(paper, "arxiv_id", None))
+    if must_arxiv and paper_arxiv and must_arxiv == paper_arxiv:
         return True
-    if must.get("doi") and paper.doi and must["doi"].lower() == paper.doi.lower():
+    must_doi = normalize_doi(must.get("doi"))
+    paper_doi = normalize_doi(getattr(paper, "doi", None))
+    if must_doi and paper_doi and must_doi == paper_doi:
         return True
     a = set(normalize_title(must.get("title", "")).split())
-    b = set(normalize_title(paper.title).split())
+    b = set(normalize_title(getattr(paper, "title", "")).split())
     return bool(a and b) and len(a & b) / len(a | b) >= TITLE_JACCARD
 
 
-# Stage-level coverage (pool / shortlist / cited)
 def coverage(must_cite: list[dict], papers: list[Paper]) -> tuple[float | None, list[str]]:
-    """Recall of must-cite items over *papers*.  Returns (score, list_of_missed_titles)."""
+    """Recall of must-cite anchors among papers at one pipeline stage."""
     if not must_cite:
         return None, []
-    missed = [m.get("title") or m.get("arxiv_id", "?") for m in must_cite if not any(match_paper(m, p) for p in papers)]
+    missed = [m.get("title") or m.get("arxiv_id", "?") for m in must_cite
+              if not any(match_paper(m, p) for p in papers)]
     return round(1 - len(missed) / len(must_cite), 4), missed
 
 
-# Ranked-retrieval metrics  (require a ranked pool list)
-def _relevance_vector(must_cite: list[dict], ranked: list[Paper]) -> list[int]:
-    """Binary relevance list aligned with *ranked* (1 = must-cite, 0 = not)."""
-    return [int(any(match_paper(m, p) for m in must_cite)) for p in ranked]
+def _legacy_known_item_metrics(must: list[dict], ranked: list[Paper], ks: tuple[int, ...]) -> dict[str, Any]:
+    """Backward-compatible ranked metrics against the must-cite list only."""
+    rel = [int(any(match_paper(m, p) for m in must)) for p in ranked]
+    out: dict[str, Any] = {"known_item_metric_basis": "must_cite_list"}
+    for k in ks:
+        if not must or k <= 0:
+            precision = recall = ndcg = None
+        else:
+            top = rel[:k]
+            precision = round(sum(top) / k, 4)
+            recall = round(sum(top) / len(must), 4)
+            dcg = sum(value / math.log2(i + 2) for i, value in enumerate(top))
+            ideal_n = min(len(must), k)
+            idcg = sum(1 / math.log2(i + 2) for i in range(ideal_n))
+            ndcg = round(dcg / idcg, 4) if idcg else None
+        # Existing field names retained for result compatibility. They are NOT
+        # open-ended relevance metrics; they measure must-cite retrieval only.
+        out[f"precision_at_{k}"] = precision
+        out[f"recall_at_{k}"] = recall
+        out[f"ndcg_at_{k}"] = ndcg
+    if not must:
+        out["mrr"] = out["average_precision"] = None
+    else:
+        first = next((i for i, value in enumerate(rel, 1) if value), None)
+        out["mrr"] = round(1 / first, 4) if first else 0.0
+        found = 0
+        total_precision = 0.0
+        for rank, value in enumerate(rel, 1):
+            if value:
+                found += 1
+                total_precision += found / rank
+        out["average_precision"] = round(total_precision / len(must), 4)
+    return out
 
 
-def precision_at_k(must_cite: list[dict], ranked: list[Paper], k: int) -> float | None:
-    """Share of top-k papers that are must-cites. None when k=0 or no must-cites."""
-    if not must_cite or k <= 0:
-        return None
-    rel = _relevance_vector(must_cite, ranked[:k])
-    return round(sum(rel) / k, 4)
+def subquestion_coverage(plan: ResearchPlan | None, papers: list[Paper]) -> dict[str, float]:
+    """Lexical token overlap between each planned subquestion and shortlisted titles/abstracts.
 
-
-def recall_at_k(must_cite: list[dict], ranked: list[Paper], k: int) -> float | None:
-    """Share of must-cites that appear within the top-k papers. None when no must-cites."""
-    if not must_cite or k <= 0:
-        return None
-    rel = _relevance_vector(must_cite, ranked[:k])
-    return round(sum(rel) / len(must_cite), 4)
-
-
-def ndcg_at_k(must_cite: list[dict], ranked: list[Paper], k: int) -> float | None:
-    """Normalised DCG at k with binary relevance (must-cites score 1, others 0).
-    Returns None when there are no must-cites or k=0."""
-    if not must_cite or k <= 0:
-        return None
-    rel = _relevance_vector(must_cite, ranked[:k])
-    dcg = sum(r / math.log2(i + 2) for i, r in enumerate(rel))
-    n_ideal = min(len(must_cite), k)
-    idcg = sum(1.0 / math.log2(i + 2) for i in range(n_ideal))
-    if idcg == 0:
-        return None
-    return round(dcg / idcg, 4)
-
-
-def mrr(must_cite: list[dict], ranked: list[Paper]) -> float | None:
-    """Reciprocal rank of the first must-cite in the ranked pool.  None if not found."""
-    if not must_cite:
-        return None
-    for rank, p in enumerate(ranked, 1):
-        if any(match_paper(m, p) for m in must_cite):
-            return round(1.0 / rank, 4)
-    return 0.0
-
-
-def average_precision(must_cite: list[dict], ranked: list[Paper]) -> float | None:
-    """Area-under-precision-recall curve (AP). None when no must-cites in corpus."""
-    if not must_cite:
-        return None
-    rel = _relevance_vector(must_cite, ranked)
-    found = 0
-    total_p = 0.0
-    for i, r in enumerate(rel, 1):
-        if r:
-            found += 1
-            total_p += found / i
-    if not found:
-        return 0.0
-    return round(total_p / len(must_cite), 4)
-
-
-# Sub-question topic coverage
-def subquestion_coverage(
-    plan: ResearchPlan | None,
-    papers: list[Paper],
-) -> dict[str, float]:
-    """For each sub-question estimate how well the shortlisted papers cover its keywords.
-
-    Returns {sq_id: score ∈ [0,1]} where score = fraction of the sub-question's
-    significant tokens that appear in at least one paper's title or abstract.
-    An absent plan returns {}.
+    This is a cheap diagnostic, not a semantic relevance metric or evidence check.
     """
     if not plan or not plan.sub_questions:
         return {}
-    paper_tokens = set()
-    for p in papers:
-        paper_tokens.update(tokenize(p.title))
-        if p.abstract:
-            paper_tokens.update(tokenize(p.abstract))
-
+    paper_tokens: set[str] = set()
+    for paper in papers:
+        paper_tokens.update(tokenize(paper.title))
+        if paper.abstract:
+            paper_tokens.update(tokenize(paper.abstract))
     result: dict[str, float] = {}
     for sq in plan.sub_questions:
-        sq_tokens = set(tokenize(sq.question))
-        for q in sq.queries:
-            sq_tokens.update(tokenize(q))
-        if not sq_tokens:
-            result[sq.id] = 0.0
-            continue
-        covered = sq_tokens & paper_tokens
-        result[sq.id] = round(len(covered) / len(sq_tokens), 4)
+        tokens = set(tokenize(sq.question))
+        for query in sq.queries:
+            tokens.update(tokenize(query))
+        result[sq.id] = round(len(tokens & paper_tokens) / len(tokens), 4) if tokens else 0.0
     return result
 
 
-# Main evaluation entry point
+def _claim_check_dict(check: Any) -> dict[str, Any]:
+    return {
+        "claim": getattr(check, "claim", ""),
+        "chunk_ids": list(getattr(check, "chunk_ids", []) or []),
+        "verdict": getattr(check, "verdict", "unsupported"),
+        "reason": getattr(check, "reason", ""),
+    }
+
+
+def _sentence_count(markdown: str) -> int:
+    """Rough count of prose sentences, excluding headings and table rows."""
+    count = 0
+    for line in markdown.splitlines():
+        line = line.strip().lstrip("-*• ").strip()
+        if not line or line.startswith(("#", "|", "```")):
+            continue
+        count += len([s for s in re.split(r"(?<=[.!?])\s+(?=[A-Z\[\"'(])", line) if s.strip()])
+    return count
+
+def precision_at_k(must_cite, ranked, k):
+    return _legacy_known_item_metrics(must_cite, ranked, (k,))[
+        f"precision_at_{k}"
+    ]
+
+
+def recall_at_k(must_cite, ranked, k):
+    return _legacy_known_item_metrics(must_cite, ranked, (k,))[
+        f"recall_at_{k}"
+    ]
+
+
+def ndcg_at_k(must_cite, ranked, k):
+    return _legacy_known_item_metrics(must_cite, ranked, (k,))[
+        f"ndcg_at_{k}"
+    ]
+
+
+def mrr(must_cite, ranked):
+    return _legacy_known_item_metrics(must_cite, ranked, ())["mrr"]
+
+
+def average_precision(must_cite, ranked):
+    return _legacy_known_item_metrics(must_cite, ranked, ())[
+        "average_precision"
+    ]
+
 def evaluate_run(
     topic: dict,
     state: CopilotState,
@@ -160,86 +172,129 @@ def evaluate_run(
     batch_size: int = 8,
     ks: tuple[int, ...] = DEFAULT_KS,
 ) -> dict[str, Any]:
-    """Compute all evaluation metrics for a finished pipeline run.
-
-    Parameters
-    ----------
-    topic       Dataset topic dict (must have ``id`` and optionally ``must_cite``).
-    state       Finished CopilotState.
-    chunk_text  Callable mapping chunk_id -> text (from the pipeline's vector store).
-    judge_llm   LLM used to verify claim support.
-    batch_size  Claims per judge call.
-    ks          Tuple of k values for Precision@k / Recall@k / nDCG@k metrics.
-    """
+    """Compute retrieval, topic, citation-support, and efficiency metrics for one run."""
     papers: dict[str, Paper] = state.get("papers", {})
+    all_papers = list(papers.values())
     shortlist_ids: list[str] = state.get("shortlist", [])
-    shortlist: list[Paper] = [papers[i] for i in shortlist_ids if i in papers]
+    shortlist = [papers[i] for i in shortlist_ids if i in papers]
     draft = state.get("draft")
     plan: ResearchPlan | None = state.get("plan")
-
-    cited_ids = {paper_id_of(c) for c in (draft.cited_chunk_ids if draft else [])}
-    cited: list[Paper] = [papers[i] for i in cited_ids if i in papers]
+    cited_chunk_ids = list(draft.cited_chunk_ids if draft else [])
+    cited_ids = {paper_id_of(cid) for cid in cited_chunk_ids}
+    cited = [papers[i] for i in cited_ids if i in papers]
     must = topic.get("must_cite", [])
 
-    # stage-level coverage
-    all_papers: list[Paper] = list(papers.values())
-    cov_pool, _missed_pool = coverage(must, all_papers)
+    cov_pool, missed_pool = coverage(must, all_papers)
     cov_short, missed_short = coverage(must, shortlist)
-    cov_cited, _ = coverage(must, cited)
+    cov_cited, missed_cited = coverage(must, cited)
+    ranked_pool = sorted(all_papers, key=lambda p: (-getattr(p, "score", 0.0),
+                                                     -getattr(p, "citation_count", 0), p.title))
 
-    # ranked-retrieval metrics
-    # Sort the pool by score descending for ranking metrics.
-    ranked_pool = sorted(all_papers, key=lambda p: (-p.score, -p.citation_count, p.title))
+    result: dict[str, Any] = {
+        "topic": topic["id"],
+        "coverage_pool": cov_pool,
+        "coverage_shortlist": cov_short,
+        "coverage_cited": cov_cited,
+        "must_cite_count": len(must),
+        "missed_in_pool": missed_pool,
+        "missed_in_shortlist": missed_short,
+        "missed_in_cited_report": missed_cited,
+    }
+    result.update(_legacy_known_item_metrics(must, ranked_pool, ks))
 
-    ranked_metrics: dict[str, Any] = {}
-    for k in ks:
-        ranked_metrics[f"precision_at_{k}"] = precision_at_k(must, ranked_pool, k)
-        ranked_metrics[f"recall_at_{k}"] = recall_at_k(must, ranked_pool, k)
-        ranked_metrics[f"ndcg_at_{k}"] = ndcg_at_k(must, ranked_pool, k)
-    ranked_metrics["mrr"] = mrr(must, ranked_pool)
-    ranked_metrics["average_precision"] = average_precision(must, ranked_pool)
+    # Independent relevance scores require an explicit, curated judgment set.
+    # Empty/missing judgments deliberately produce None, not a fabricated zero.
+    result.update(graded_relevance_metrics(topic.get("relevance_judgments", []), ranked_pool, ks))
+    result.update(judged_aspect_coverage(
+        topic.get("topic_aspects", []), topic.get("relevance_judgments", []), shortlist
+    ))
 
-    # sub-question / topic coverage
     sq_cov = subquestion_coverage(plan, shortlist)
     mean_sq_cov = round(sum(sq_cov.values()) / len(sq_cov), 4) if sq_cov else None
+    result.update({
+        "lexical_subquestion_coverage": sq_cov,
+        "mean_lexical_subquestion_coverage": mean_sq_cov,
+        "subquestion_coverage": sq_cov,
+        "mean_subquestion_coverage": mean_sq_cov,
+        "subquestion_coverage_method": "lexical_token_overlap_title_abstract",
+    })
 
-    # claim verification
+    evidence_basis: dict[str, str] = {}
+
     def safe_chunk_text(cid: str) -> str | None:
-        t = chunk_text(cid)
-        if t:
-            return t
-        # fallback: paper abstract is better than nothing for claim verification
-        pid = paper_id_of(cid)
-        p = papers.get(pid)
-        if p and p.abstract:
-            return p.abstract
+        try:
+            text = chunk_text(cid)
+        except Exception:
+            text = None
+        if text:
+            evidence_basis[cid] = "retrieved_text_chunk"
+            return text
+        paper_id = paper_id_of(cid)
+        paper = papers.get(paper_id)
+        if paper and paper.abstract:
+            evidence_basis[cid] = "abstract_fallback"
+            return paper.abstract
+        evidence_basis[cid] = "missing"
         return None
 
     claims = split_claims(draft.markdown) if draft else []
     checks, judge_usage = verify_claims(judge_llm, claims, safe_chunk_text, batch_size)
-
+    check_dicts = [_claim_check_dict(check) for check in checks]
+    verdicts = [item["verdict"] for item in check_dicts]
     usage = state.get("usage")
-    return {
-        "topic": topic["id"],
-        # stage coverage
-        "coverage_pool": cov_pool,
-        "coverage_shortlist": cov_short,
-        "coverage_cited": cov_cited,
-        "missed_in_shortlist": missed_short,
-        # ranked-retrieval metrics
-        **ranked_metrics,
-        # sub-question coverage
-        "subquestion_coverage": sq_cov,
-        "mean_subquestion_coverage": mean_sq_cov,
-        # citation / quality
-        "n_papers_cited": len(cited_ids),
+    evidence_counts = {key: sum(value == key for value in evidence_basis.values())
+                       for key in ("retrieved_text_chunk", "abstract_fallback", "missing")}
+    n_judge_errors = sum("judge call failed" in str(item["reason"]).lower()
+                         or "no verdict returned" in str(item["reason"]).lower()
+                         for item in check_dicts)
+    trace = state.get("trace", []) or []
+    trace_actions = [getattr(event, "data", {}) or {} for event in trace]
+    route_counts = {action: sum((data.get("action") == action) for data in trace_actions)
+                    for action in ("pass", "revise_draft", "retrieve_more")}
+    markdown = draft.markdown if draft else ""
+
+    valid_refs = sum(paper_id_of(cid) in papers for cid in cited_chunk_ids)
+    ref_validity = round(valid_refs / len(cited_chunk_ids), 4) if cited_chunk_ids else None
+    sup_rate = support_rate(checks)
+    n_unsupported = sum(v == "unsupported" for v in verdicts)
+    n_missing_ev_chunks = evidence_counts.get("missing", 0)
+    n_insufficient_claims = sum(
+        1 for item in check_dicts
+        if item["verdict"] != "supported" and any(
+            w in str(item.get("reason", "")).lower()
+            for w in ("not found", "missing", "insufficient", "no verdict", "not contain", "does not state")
+        )
+    )
+    missing_or_insufficient_ev = n_missing_ev_chunks + n_insufficient_claims
+
+    result.update({
+        "n_papers_retrieved": len(all_papers),
+        "n_papers_shortlisted": len(shortlist),
+        "n_papers_cited": len(cited),
+        "n_citation_refs": len(cited_chunk_ids),
+        "n_valid_citation_refs": valid_refs,
+        "reference_validity": ref_validity,
+        "citation_reference_validity": ref_validity,
         "n_claims": len(claims),
-        "support_rate": support_rate(checks),
+        "n_supported_claims": sum(v == "supported" for v in verdicts),
+        "n_partial_claims": sum(v == "partial" for v in verdicts),
+        "n_unsupported_claims": n_unsupported,
+        "unsupported_claim_count": n_unsupported,
+        "n_claim_judge_errors": n_judge_errors,
+        "claim_support_rate": sup_rate,
+        "support_rate": sup_rate,
+        "missing_or_insufficient_evidence_count": missing_or_insufficient_ev,
         "unsupported_claims": [c.claim for c in checks if c.verdict == "unsupported"],
+        "claim_checks": check_dicts,
+        "evidence_basis_counts": evidence_counts,
+        "n_prose_sentences_estimate": _sentence_count(markdown),
         "stripped_citations": draft.stripped_citations if draft else 0,
-        "words": len(draft.markdown.split()) if draft else 0,
+        "words": len(markdown.split()),
         "iterations": state.get("iteration", 0),
+        "trace_event_count": len(trace),
+        "route_action_counts": route_counts,
         "tokens": usage.total_tokens if usage else 0,
         "judge_tokens": judge_usage.total_tokens,
         "errors": len(state.get("errors", [])),
-    }
+    })
+    return result
