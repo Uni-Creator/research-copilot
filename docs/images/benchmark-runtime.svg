@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="500" viewBox="0 0 1000 500">
+<rect width="100%" height="100%" fill="#ffffff" rx="18"/>
+<text x="42" y="45" font-family="Inter,Arial,sans-serif" font-size="27" font-weight="700" fill="#111827">Average runtime per topic</text>
+<text x="42" y="75" font-family="Inter,Arial,sans-serif" font-size="15" fill="#6b7280">Lower is better; multi-agent variants run substantially longer</text>
+<line x1="230.0" y1="105" x2="230.0" y2="425" stroke="#e5e7eb" stroke-width="1"/>
+<text x="230.0" y="453" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="13" fill="#6b7280">0s</text>
+<line x1="411.2" y1="105" x2="411.2" y2="425" stroke="#e5e7eb" stroke-width="1"/>
+<text x="411.2" y="453" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="13" fill="#6b7280">88s</text>
+<line x1="592.5" y1="105" x2="592.5" y2="425" stroke="#e5e7eb" stroke-width="1"/>
+<text x="592.5" y="453" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="13" fill="#6b7280">175s</text>
+<line x1="773.8" y1="105" x2="773.8" y2="425" stroke="#e5e7eb" stroke-width="1"/>
+<text x="773.8" y="453" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="13" fill="#6b7280">262s</text>
+<line x1="955.0" y1="105" x2="955.0" y2="425" stroke="#e5e7eb" stroke-width="1"/>
+<text x="955.0" y="453" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="13" fill="#6b7280">350s</text>
+<text x="212" y="163.3" text-anchor="end" font-family="Inter,Arial,sans-serif" font-size="16" fill="#374151">Baseline</text>
+<rect x="230" y="145.3" width="53.2" height="26" rx="5" fill="#2563eb"/>
+<text x="292.2" y="164.3" text-anchor="start" font-family="Inter,Arial,sans-serif" font-size="13" font-weight="600" fill="#111827">25.7 s</text>
+<text x="212" y="270.0" text-anchor="end" font-family="Inter,Arial,sans-serif" font-size="16" fill="#374151">Multi</text>
+<rect x="230" y="252.0" width="483.9" height="26" rx="5" fill="#2563eb"/>
+<text x="722.9" y="271.0" text-anchor="start" font-family="Inter,Arial,sans-serif" font-size="13" font-weight="600" fill="#111827">233.6 s</text>
+<text x="212" y="376.7" text-anchor="end" font-family="Inter,Arial,sans-serif" font-size="16" fill="#374151">Multi + critic</text>
+<rect x="230" y="358.7" width="676.5" height="26" rx="5" fill="#2563eb"/>
+<text x="915.5" y="377.7" text-anchor="start" font-family="Inter,Arial,sans-serif" font-size="13" font-weight="600" fill="#111827">326.6 s</text>
+<rect x="230" y="464" width="13" height="13" rx="3" fill="#2563eb"/>
+<text x="251" y="476" font-family="Inter,Arial,sans-serif" font-size="13" fill="#374151">Seconds</text>
+</svg>
